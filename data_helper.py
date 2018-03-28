@@ -28,7 +28,7 @@ def clean_str(s,max_length):
     #komoran = Komoran()
     #print(' '.join(kkma.nouns(s)))
     result = []
-    result = mecab.nouns(s)
+    result = mecab.morphs(s)
     #temp = []
     #temp = mecab.nouns(s)
     #for noun in temp:
@@ -55,7 +55,7 @@ def clean_str(s,max_length):
 def load_data_and_labels(foldername,max_length):
     """Load sentences and labels"""
     columns = ['section', 'class', 'subclass', 'abstract']
-    selected = ['section', 'abstract']
+    selected = ['class', 'abstract']
     global counter_konlpy
     global total_dataset
     #global stopwords
@@ -77,8 +77,9 @@ def load_data_and_labels(foldername,max_length):
     for filename in file_list:
         fp = open(filename, 'r', encoding='utf-8')
         temp = fp.readlines()
-        data.append([filename.split('/')[3], filename.split('/')[4], filename.split('/')[5], ''.join(temp)])
+        data.append([filename.split('/')[3], filename.split('/')[3]+filename.split('/')[4],filename.split('/')[3]+filename.split('/')[4]+ filename.split('/')[5], ''.join(temp)])
         fp.close()
+
     df = pd.DataFrame(data, columns=columns)
     print("Execution time = {0:.5f}".format(time.time() - start))
 

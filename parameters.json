@@ -1,6 +1,6 @@
 {
     "num_epochs": 3,
-    "batch_size": 64,
+    "batch_size": 128,
     "max_length": 256,
     "embedding_dim": 64,
     "evaluate_every": 100,
