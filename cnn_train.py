@@ -16,10 +16,11 @@ logging.getLogger().setLevel(logging.INFO)
 def train_cnn():
     """Step 0: load sentences, labels, and training parameters"""
     dataset = './dataset/abstract'
-    x_raw, y_raw, df, labels = data_helper.load_data_and_labels(dataset)
-
     parameter_file = "./parameters.json"
     params = json.loads(open(parameter_file).read())
+    x_raw, y_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'])
+
+
 
     """Step 1: pad each sentence to the same length and map each word to an id"""
     max_document_length = max([len(x.split(' ')) for x in x_raw])
@@ -53,6 +54,7 @@ def train_cnn():
             cnn = text_Vgg19(
                 sequence_length=x_train.shape[1],
                 num_classes=y_train.shape[1],
+                max_length=params['max_length'],
                 vocab_size=len(vocab_processor.vocabulary_),
                 embedding_size=params['embedding_dim'])
 

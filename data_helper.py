@@ -14,7 +14,7 @@ from konlpy.tag import Komoran
 from konlpy.utils import pprint
 
 
-def clean_str(s):
+def clean_str(s,max_length):
     """Clean sentence"""
     global counter_konlpy
     global total_dataset
@@ -40,10 +40,10 @@ def clean_str(s):
        # if flag == 0:
             #result.append(noun)     
             
-    if len(result) >= 224:
-        result = result[0:224]
-    elif len(result) < 224:
-        result = result + ["<PAD/>"] * (224 - len(result)-1)
+    if len(result) >= max_length:
+        result = result[0:max_length]
+    elif len(result) < max_length:
+        result = result + ["<PAD/>"] * (max_length - len(result)-1)
     counter_konlpy += 1
     sys.stdout.write("\rParsed: %d / %d" %(counter_konlpy, total_dataset))
     sys.stdout.flush()
@@ -52,7 +52,7 @@ def clean_str(s):
 
 
 
-def load_data_and_labels(foldername):
+def load_data_and_labels(foldername,max_length):
     """Load sentences and labels"""
     columns = ['section', 'class', 'subclass', 'abstract']
     selected = ['section', 'abstract']
@@ -98,7 +98,7 @@ def load_data_and_labels(foldername):
     start = time.time()
     counter_konlpy = 0
     total_dataset = len(file_list)
-    x_raw = df[selected[1]].apply(lambda x: clean_str(x)).tolist()
+    x_raw = df[selected[1]].apply(lambda x: clean_str(x,max_length)).tolist()
     y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
     print("\nExecution time = {0:.5f}".format(time.time() - start))
     return x_raw, y_raw, df, labels

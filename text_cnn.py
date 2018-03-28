@@ -3,7 +3,7 @@ import tensorflow as tf
 
 
 class text_Vgg19(object):  
-    def __init__(self, sequence_length, num_classes, vocab_size, embedding_size, vgg19_npy_path=None, trainable=True,train_mode=None, dropout_keep_prob=0.5):
+    def __init__(self, sequence_length, num_classes, max_length, vocab_size, embedding_size, vgg19_npy_path=None, trainable=True,train_mode=None, dropout_keep_prob=0.5):
         if vgg19_npy_path is not None:
             self.data_dict = np.load(vgg19_npy_path, encoding='utf8').item()
         else:
@@ -19,77 +19,79 @@ class text_Vgg19(object):
         # Embedding layer
         with tf.device('/cpu:0'), tf.name_scope('embedding'):
             W = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='W')
-            self.embedded_chars = tf.nn.embedding_lookup(W, self.input_x) * 255.0
+            self.embedded_chars = tf.nn.embedding_lookup(W, self.input_x) 
             self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1) 
         
-        assert self.embedded_chars_expanded.get_shape().as_list()[1:] == [224, 224, 1]
-
+        assert self.embedded_chars_expanded.get_shape().as_list()[1:] == [max_length, embedding_size, 1]
+                # Embedding layer
         #VGG19 Network
-        self.conv1_1 = self.conv_layer(self.embedded_chars_expanded,1,64,"conv1_1")
-        self.conv1_2 = self.conv_layer(self.conv1_1,64,64,"conv1_2")
-        self.pool1 = tf.nn.max_pool(self.conv1_2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool1')
-            
-        self.conv2_1 = self.conv_layer(self.pool1, 64, 128, "conv2_1")
-        self.conv2_2 = self.conv_layer(self.conv2_1, 128, 128, "conv2_2")
-        self.pool2 = tf.nn.max_pool(self.conv2_2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool2')
-            
-        self.conv3_1 = self.conv_layer(self.pool2, 128, 256, "conv3_1")
-        self.conv3_2 = self.conv_layer(self.conv3_1, 256, 256, "conv3_2")
-        self.conv3_3 = self.conv_layer(self.conv3_2, 256, 256, "conv3_3")
-        self.conv3_4 = self.conv_layer(self.conv3_3, 256, 256, "conv3_4")
-        self.pool3 = tf.nn.max_pool(self.conv3_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool3')
+        with tf.name_scope('VGG19_Net'):
 
-        self.conv4_1 = self.conv_layer(self.pool3, 256, 512, "conv4_1")
-        self.conv4_2 = self.conv_layer(self.conv4_1, 512, 512, "conv4_2")
-        self.conv4_3 = self.conv_layer(self.conv4_2, 512, 512, "conv4_3")
-        self.conv4_4 = self.conv_layer(self.conv4_3, 512, 512, "conv4_4")
-        self.pool4 = tf.nn.max_pool(self.conv4_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool4')
-
-        self.conv5_1 = self.conv_layer(self.pool4, 512, 512, "conv5_1")
-        self.conv5_2 = self.conv_layer(self.conv5_1, 512, 512, "conv5_2")
-        self.conv5_3 = self.conv_layer(self.conv5_2, 512, 512, "conv5_3")
-        self.conv5_4 = self.conv_layer(self.conv5_3, 512, 512, "conv5_4")
-        self.pool5 = tf.nn.max_pool(self.conv5_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool5')
+            self.conv1_1 = self.conv_layer(self.embedded_chars_expanded,1,64,"conv1_1")
+            self.conv1_2 = self.conv_layer(self.conv1_1,64,64,"conv1_2")
+            self.pool1 = tf.nn.max_pool(self.conv1_2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool1')
             
-        self.fc6 = self.fc_layer(self.pool5, 25088, 4096, "fc6")  # 25088 = ((224 // (2 ** 5)) ** 2) * 512
-        self.relu6 = tf.nn.relu(self.fc6)
-        if train_mode is not None:
-            self.relu6 = tf.cond(train_mode, lambda: tf.nn.dropout(self.relu6, self.dropout_keep_prob), lambda: self.relu6)
-        elif self.trainable:
-            self.relu6 = tf.nn.dropout(self.relu6, self.dropout_keep_prob)
+            self.conv2_1 = self.conv_layer(self.pool1, 64, 128, "conv2_1")
+            self.conv2_2 = self.conv_layer(self.conv2_1, 128, 128, "conv2_2")
+            self.pool2 = tf.nn.max_pool(self.conv2_2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool2')
+            
+            self.conv3_1 = self.conv_layer(self.pool2, 128, 256, "conv3_1")
+            self.conv3_2 = self.conv_layer(self.conv3_1, 256, 256, "conv3_2")
+            self.conv3_3 = self.conv_layer(self.conv3_2, 256, 256, "conv3_3")
+            self.conv3_4 = self.conv_layer(self.conv3_3, 256, 256, "conv3_4")
+            self.pool3 = tf.nn.max_pool(self.conv3_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool3')
 
-        self.fc7 = self.fc_layer(self.relu6, 4096, 4096, "fc7")
-        self.relu7 = tf.nn.relu(self.fc7)
+            self.conv4_1 = self.conv_layer(self.pool3, 256, 512, "conv4_1")
+            self.conv4_2 = self.conv_layer(self.conv4_1, 512, 512, "conv4_2")
+            self.conv4_3 = self.conv_layer(self.conv4_2, 512, 512, "conv4_3")
+            self.conv4_4 = self.conv_layer(self.conv4_3, 512, 512, "conv4_4")
+            self.pool4 = tf.nn.max_pool(self.conv4_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool4')
+
+            self.conv5_1 = self.conv_layer(self.pool4, 512, 512, "conv5_1")
+            self.conv5_2 = self.conv_layer(self.conv5_1, 512, 512, "conv5_2")
+            self.conv5_3 = self.conv_layer(self.conv5_2, 512, 512, "conv5_3")
+            self.conv5_4 = self.conv_layer(self.conv5_3, 512, 512, "conv5_4")
+            self.pool5 = tf.nn.max_pool(self.conv5_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool5')
+            
+            self.fc6 = self.fc_layer(self.pool5,(max_length//32) *(embedding_size//32) * 512, 4096, "fc6")  # 25088 = ((224 // (2 ** 5)) ** 2) * 512
+            self.relu6 = tf.nn.relu(self.fc6)
+            if train_mode is not None:
+                self.relu6 = tf.cond(train_mode, lambda: tf.nn.dropout(self.relu6, self.dropout_keep_prob), lambda: self.relu6)
+            elif self.trainable:
+                self.relu6 = tf.nn.dropout(self.relu6, self.dropout_keep_prob)
+
+            self.fc7 = self.fc_layer(self.relu6, 4096, 4096, "fc7")
+            self.relu7 = tf.nn.relu(self.fc7)
         
-        if train_mode is not None:
-            self.relu7 = tf.cond(train_mode, lambda: tf.nn.dropout(self.relu7, self.dropout_keep_prob), lambda: self.relu7)
-        elif self.trainable:
-            self.relu7 = tf.nn.dropout(self.relu7, self.dropout_keep_prob)
+            if train_mode is not None:
+                self.relu7 = tf.cond(train_mode, lambda: tf.nn.dropout(self.relu7, self.dropout_keep_prob), lambda: self.relu7)
+            elif self.trainable:
+                self.relu7 = tf.nn.dropout(self.relu7, self.dropout_keep_prob)
 
-        self.fc8 = self.fc_layer(self.relu7, 4096, num_classes, "fc8")
+            self.fc8 = self.fc_layer(self.relu7, 4096, num_classes, "fc8")
 
-        #self.prob = tf.nn.softmax(self.fc8, name="prob")
-        self.prob = self.fc8
-        self.data_dict = None
-        # Final (unnormalized) scores and predictions
-        with tf.name_scope('output'):
-            W = tf.get_variable('W', shape=[4096, num_classes],
+            #self.prob = tf.nn.softmax(self.fc8, name="prob")
+            self.prob = self.fc8
+            self.data_dict = None
+            # Final (unnormalized) scores and predictions
+            with tf.name_scope('output'):
+                W = tf.get_variable('W', shape=[4096, num_classes],
                                 initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.constant(0.01, shape=[num_classes]), name='b')
-            self.scores = self.fc8
-            self.predictions = tf.argmax(self.fc8, 1, name='predictions')
+                b = tf.Variable(tf.constant(0.01, shape=[num_classes]), name='b')
+                self.scores = self.fc8
+                self.predictions = tf.argmax(self.fc8, 1, name='predictions')
         # Calculate mean cross-entropy loss
-        with tf.name_scope('loss'):
-            losses = tf.nn.softmax_cross_entropy_with_logits(labels=self.input_y,logits=self.scores)              # only named arguments accepted
-            self.loss = tf.reduce_mean(losses)
+            with tf.name_scope('loss'):
+                losses = tf.nn.softmax_cross_entropy_with_logits(labels=self.input_y,logits=self.scores)              # only named arguments accepted
+                self.loss = tf.reduce_mean(losses)
 
         # Accuracy
-        with tf.name_scope('accuracy'):
-            correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
-            self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, 'float'), name='accuracy')
-        with tf.name_scope('num_correct'):
-            correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
-            self.num_correct = tf.reduce_sum(tf.cast(correct_predictions, 'float'), name='num_correct')
+            with tf.name_scope('accuracy'):
+                correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
+                self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, 'float'), name='accuracy')
+            with tf.name_scope('num_correct'):
+                correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
+                self.num_correct = tf.reduce_sum(tf.cast(correct_predictions, 'float'), name='num_correct')
             
     def conv_layer(self, bottom, in_channels, out_channels, layer_name):
         with tf.variable_scope(layer_name):
