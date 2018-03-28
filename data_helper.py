@@ -66,23 +66,8 @@ def load_data_and_labels(foldername):
         if files:
             for filename in files:
                 fullname = os.path.join(path, filename)
-                #if not "2017"in filename.split('-')[0]:
-                #    file_list.append(fullname) 
-                
-                if "2016"in filename.split('-')[0] and "2016"in filename.split('-')[1]:
-                    file_list.append(fullname)   
-                elif "2015"in filename.split('-')[0] and "2015"in filename.split('-')[1]:
-                    file_list.append(fullname)
-                elif "2014"in filename.split('-')[0] and "2014"in filename.split('-')[1]:
-                    file_list.append(fullname)
-                elif "2013"in filename.split('-')[0] and "2013"in filename.split('-')[1]:
-                    file_list.append(fullname)                  
-                elif "2012"in filename.split('-')[0] and "2012"in filename.split('-')[1]:
-                    file_list.append(fullname)  
-                elif "2011"in filename.split('-')[0] and "2011"in filename.split('-')[1]:
-                    file_list.append(fullname)  
+                file_list.append(fullname)  
                
-
     random.shuffle(file_list)
 
 
