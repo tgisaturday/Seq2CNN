@@ -10,6 +10,7 @@ import os
 from collections import Counter
 from konlpy.tag import Kkma
 from konlpy.tag import Mecab
+from konlpy.tag import Komoran
 from konlpy.utils import pprint
 
 
@@ -24,6 +25,7 @@ def clean_str(s):
     # komoran  = Komoran()
     # twitter = Twitter()
     mecab = Mecab()
+    #komoran = Komoran()
     #print(' '.join(kkma.nouns(s)))
     result = []
     result = mecab.nouns(s)
@@ -38,10 +40,10 @@ def clean_str(s):
        # if flag == 0:
             #result.append(noun)     
             
-    if len(result) >= 300:
-        result = result[0:300]
-    elif len(result) < 300:
-        result = result + ["<PAD/>"] * (300 - len(result)-1)
+    if len(result) >= 224:
+        result = result[0:224]
+    elif len(result) < 224:
+        result = result + ["<PAD/>"] * (224 - len(result)-1)
     counter_konlpy += 1
     sys.stdout.write("\rParsed: %d / %d" %(counter_konlpy, total_dataset))
     sys.stdout.flush()
@@ -50,7 +52,7 @@ def clean_str(s):
 
 
 
-def load_data_and_labels(foldername, removed):
+def load_data_and_labels(foldername):
     """Load sentences and labels"""
     columns = ['section', 'class', 'subclass', 'abstract']
     selected = ['section', 'abstract']
@@ -64,8 +66,9 @@ def load_data_and_labels(foldername, removed):
         if files:
             for filename in files:
                 fullname = os.path.join(path, filename)
-                if fullname.split('/')[3] == removed:
-                    continue
+                #if not "2017"in filename.split('-')[0]:
+                #    file_list.append(fullname) 
+                
                 if "2016"in filename.split('-')[0] and "2016"in filename.split('-')[1]:
                     file_list.append(fullname)   
                 elif "2015"in filename.split('-')[0] and "2015"in filename.split('-')[1]:
@@ -73,16 +76,13 @@ def load_data_and_labels(foldername, removed):
                 elif "2014"in filename.split('-')[0] and "2014"in filename.split('-')[1]:
                     file_list.append(fullname)
                 elif "2013"in filename.split('-')[0] and "2013"in filename.split('-')[1]:
-                    file_list.append(fullname)
+                    file_list.append(fullname)                  
+                elif "2012"in filename.split('-')[0] and "2012"in filename.split('-')[1]:
+                    file_list.append(fullname)  
                 elif "2011"in filename.split('-')[0] and "2011"in filename.split('-')[1]:
                     file_list.append(fullname)  
-                elif "2010"in filename.split('-')[0] and "2010"in filename.split('-')[1]:
-                    file_list.append(fullname)
-                elif "2009"in filename.split('-')[0] and "2009"in filename.split('-')[1]:
-                    file_list.append(fullname) 
-                elif "2008"in filename.split('-')[0] and "2008"in filename.split('-')[1]:
-                    file_list.append(fullname)                     
-                    
+               
+
     random.shuffle(file_list)
 
 
