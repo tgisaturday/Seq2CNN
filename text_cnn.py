@@ -3,7 +3,7 @@ import tensorflow as tf
 
 
 class text_Vgg19(object):  
-    def __init__(self, sequence_length, num_classes, max_length, vocab_size, embedding_size, vgg19_npy_path=None, trainable=True,train_mode=None, dropout_keep_prob=0.5):
+    def __init__(self, sequence_length, num_classes, max_length, vocab_size, embedding_size, filter_size = 2, vgg19_npy_path=None, trainable=True,train_mode=None, dropout_keep_prob=0.5):
         if vgg19_npy_path is not None:
             self.data_dict = np.load(vgg19_npy_path, encoding='utf8').item()
         else:
@@ -17,43 +17,42 @@ class text_Vgg19(object):
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y') 
         
         # Embedding layer
+        #with tf.device('/cpu:0'), tf.name_scope('embedding'):
         with tf.device('/cpu:0'), tf.name_scope('embedding'):
             W = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='W')
             self.embedded_chars = tf.nn.embedding_lookup(W, self.input_x) 
             self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1) 
-        
-        assert self.embedded_chars_expanded.get_shape().as_list()[1:] == [max_length, embedding_size, 1]
-                # Embedding layer
+            
         #VGG19 Network
         with tf.name_scope('VGG19_Net'):
-
-            self.conv1_1 = self.conv_layer(self.embedded_chars_expanded,1,64,"conv1_1")
-            self.conv1_2 = self.conv_layer(self.conv1_1,64,64,"conv1_2")
-            self.pool1 = tf.nn.max_pool(self.conv1_2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool1')
+            self.conv1_1 = self.conv_layer(self.embedded_chars_expanded,filter_size,embedding_size,1,64,"conv1_1")
+            self.conv1_2 = self.conv_layer(self.conv1_1,filter_size,embedding_size,64,64,"conv1_2")
+            self.pool1 = tf.nn.max_pool(self.conv1_2, ksize=[1, sequence_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool1')
             
-            self.conv2_1 = self.conv_layer(self.pool1, 64, 128, "conv2_1")
-            self.conv2_2 = self.conv_layer(self.conv2_1, 128, 128, "conv2_2")
-            self.pool2 = tf.nn.max_pool(self.conv2_2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool2')
+            self.conv2_1 = self.conv_layer(self.pool1,filter_size,embedding_size, 64, 128, "conv2_1")
+            self.conv2_2 = self.conv_layer(self.conv2_1,filter_size,embedding_size, 128, 128, "conv2_2")
+            self.pool2 = tf.nn.max_pool(self.conv2_2, ksize=[1, sequence_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool2')
             
-            self.conv3_1 = self.conv_layer(self.pool2, 128, 256, "conv3_1")
-            self.conv3_2 = self.conv_layer(self.conv3_1, 256, 256, "conv3_2")
-            self.conv3_3 = self.conv_layer(self.conv3_2, 256, 256, "conv3_3")
-            self.conv3_4 = self.conv_layer(self.conv3_3, 256, 256, "conv3_4")
-            self.pool3 = tf.nn.max_pool(self.conv3_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool3')
+            self.conv3_1 = self.conv_layer(self.pool2,filter_size,embedding_size, 128, 256, "conv3_1")
+            self.conv3_2 = self.conv_layer(self.conv3_1,filter_size,embedding_size, 256, 256, "conv3_2")
+            self.conv3_3 = self.conv_layer(self.conv3_2,filter_size,embedding_size, 256, 256, "conv3_3")
+            self.conv3_4 = self.conv_layer(self.conv3_3,filter_size,embedding_size, 256, 256, "conv3_4")
+            self.pool3 = tf.nn.max_pool(self.conv3_4,ksize=[1, sequence_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool3')
 
-            self.conv4_1 = self.conv_layer(self.pool3, 256, 512, "conv4_1")
-            self.conv4_2 = self.conv_layer(self.conv4_1, 512, 512, "conv4_2")
-            self.conv4_3 = self.conv_layer(self.conv4_2, 512, 512, "conv4_3")
-            self.conv4_4 = self.conv_layer(self.conv4_3, 512, 512, "conv4_4")
-            self.pool4 = tf.nn.max_pool(self.conv4_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool4')
+            self.conv4_1 = self.conv_layer(self.pool3,filter_size,embedding_size, 256, 512, "conv4_1")
+            self.conv4_2 = self.conv_layer(self.conv4_1,filter_size,embedding_size, 512, 512, "conv4_2")
+            self.conv4_3 = self.conv_layer(self.conv4_2,filter_size, embedding_size,512, 512, "conv4_3")
+            self.conv4_4 = self.conv_layer(self.conv4_3,filter_size, embedding_size,512, 512, "conv4_4")
+            self.pool4 = tf.nn.max_pool(self.conv4_4,ksize=[1, sequence_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool4')
 
-            self.conv5_1 = self.conv_layer(self.pool4, 512, 512, "conv5_1")
-            self.conv5_2 = self.conv_layer(self.conv5_1, 512, 512, "conv5_2")
-            self.conv5_3 = self.conv_layer(self.conv5_2, 512, 512, "conv5_3")
-            self.conv5_4 = self.conv_layer(self.conv5_3, 512, 512, "conv5_4")
-            self.pool5 = tf.nn.max_pool(self.conv5_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool5')
+            self.conv5_1 = self.conv_layer(self.pool4,filter_size,embedding_size, 512, 512, "conv5_1")
+            self.conv5_2 = self.conv_layer(self.conv5_1,filter_size,embedding_size, 512, 512, "conv5_2")
+            self.conv5_3 = self.conv_layer(self.conv5_2,filter_size,embedding_size, 512, 512, "conv5_3")
+            self.conv5_4 = self.conv_layer(self.conv5_3,filter_size,embedding_size, 512, 512, "conv5_4")
+            self.pool5 = tf.nn.max_pool(self.conv5_4,ksize=[1, sequence_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool5')
             
-            self.fc6 = self.fc_layer(self.pool5,(max_length//32) *(embedding_size//32) * 512, 4096, "fc6")  # 25088 = ((224 // (2 ** 5)) ** 2) * 512
+            #self.fc6 = self.fc_layer(self.pool5,(max_length//32) *(embedding_size//32) * 512, 4096, "fc6")  # 25088 = ((224 // (2 ** 5)) ** 2) * 512
+            self.fc6 = self.fc_layer(self.pool5,(max_length//32) * 512, 4096, "fc6")
             self.relu6 = tf.nn.relu(self.fc6)
             if train_mode is not None:
                 self.relu6 = tf.cond(train_mode, lambda: tf.nn.dropout(self.relu6, self.dropout_keep_prob), lambda: self.relu6)
@@ -93,11 +92,11 @@ class text_Vgg19(object):
                 correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
                 self.num_correct = tf.reduce_sum(tf.cast(correct_predictions, 'float'), name='num_correct')
             
-    def conv_layer(self, bottom, in_channels, out_channels, layer_name):
+    def conv_layer(self, bottom, filter_size, embedding_size, in_channels, out_channels, layer_name):
         with tf.variable_scope(layer_name):
-            filt, conv_biases = self.get_conv_var(3, in_channels, out_channels, layer_name)
+            filt, conv_biases = self.get_conv_var(filter_size, embedding_size, in_channels, out_channels, layer_name)
 
-            conv = tf.nn.conv2d(bottom, filt, [1, 1, 1, 1], padding='SAME')
+            conv = tf.nn.conv2d(bottom, filt, strides =[1, 1, 1, 1], padding='SAME')
             bias = tf.nn.bias_add(conv, conv_biases)
             relu = tf.nn.relu(bias)
 
@@ -113,8 +112,8 @@ class text_Vgg19(object):
 
             return fc
         
-    def get_conv_var(self, filter_size, in_channels, out_channels, layer_name):
-        initial_value = tf.truncated_normal([filter_size, filter_size, in_channels, out_channels], 0.0, 0.001)
+    def get_conv_var(self, filter_size, embedding_size,in_channels, out_channels, layer_name):
+        initial_value = tf.truncated_normal([2,embedding_size,in_channels, out_channels], 0.0, 0.001)
         filters = self.get_var(initial_value, layer_name, 0, layer_name + "_filters")
 
         initial_value = tf.truncated_normal([out_channels], 0.0, 0.001)

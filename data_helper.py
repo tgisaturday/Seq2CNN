@@ -20,30 +20,32 @@ def clean_str(s,max_length):
     global total_dataset
     global stopwords
     s = re.sub('[0-9]', '', s)
+    #s = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", s)
+    s = re.sub(r"\'s", " \'s", s)
+    s = re.sub(r"\'ve", " \'ve", s)
+    s = re.sub(r"n\'t", " n\'t", s)
+    s = re.sub(r"\'re", " \'re", s)
+    s = re.sub(r"\'d", " \'d", s)
+    s = re.sub(r"\'ll", " \'ll", s)
+    s = re.sub(r",", " , ", s)
+    s = re.sub(r"!", " ! ", s)
+    s = re.sub(r"\(", " \( ", s)
+    s = re.sub(r"\)", " \) ", s)
+    s = re.sub(r"\?", " \? ", s)
+    s = re.sub(r"\s{2,}", " ", s)
+    s = re.sub(r'\S*(x{2,}|X{2,})\S*',"xxx", s)
+    s = re.sub(r'[^\x00-\x7F]+', "", s)
+    s = s.strip()
+    #s = s.strip().lower()
 
-    #kkma = Kkma()
-    # komoran  = Komoran()
-    # twitter = Twitter()
-    mecab = Mecab()
-    #komoran = Komoran()
-    #print(' '.join(kkma.nouns(s)))
     result = []
-    result = mecab.morphs(s)
-    #temp = []
-    #temp = mecab.nouns(s)
-    #for noun in temp:
-        #flag = 0;
-        #for sword in stopwords:
-            #if noun == sword:
-                #flag = 1;
-                #break;
-       # if flag == 0:
-            #result.append(noun)     
+    result = s.split(' ')
+    
             
     if len(result) >= max_length:
         result = result[0:max_length]
     elif len(result) < max_length:
-        result = result + ["<PAD/>"] * (max_length - len(result)-1)
+        result = result + ["<PAD/>"] * (max_length - len(result) -2)
     counter_konlpy += 1
     sys.stdout.write("\rParsed: %d / %d" %(counter_konlpy, total_dataset))
     sys.stdout.flush()
@@ -55,7 +57,7 @@ def clean_str(s,max_length):
 def load_data_and_labels(foldername,max_length):
     """Load sentences and labels"""
     columns = ['section', 'class', 'subclass', 'abstract']
-    selected = ['class', 'abstract']
+    selected = ['section', 'abstract']
     global counter_konlpy
     global total_dataset
     #global stopwords
@@ -95,7 +97,7 @@ def load_data_and_labels(foldername,max_length):
     np.fill_diagonal(one_hot, 1)
     label_dict = dict(zip(labels, one_hot))
 
-    print("Parsing dataset with Konlpy.")
+    print("Preprocessing Dataset.")
     start = time.time()
     counter_konlpy = 0
     total_dataset = len(file_list)
