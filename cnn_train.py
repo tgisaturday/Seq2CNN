@@ -6,7 +6,7 @@ import logging
 import data_helper
 import numpy as np
 import tensorflow as tf
-from text_cnn import text_Vgg19
+from text_cnn import VGG_text
 from tensorflow.contrib import learn
 from sklearn.model_selection import train_test_split
 
@@ -51,8 +51,7 @@ def train_cnn():
         session_conf = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
         sess = tf.Session(config=session_conf)
         with sess.as_default():
-            cnn = text_Vgg19(
-                sequence_length=x_train.shape[1],
+            cnn = VGG_text(
                 num_classes=y_train.shape[1],
                 max_length=params['max_length'],
                 vocab_size=len(vocab_processor.vocabulary_),
