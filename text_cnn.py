@@ -22,69 +22,36 @@ class VGG_text(object):
         #VGGnet_Bigram
         with tf.name_scope('VGGnet_Bigram'):
             filter_size = 2
-            self.conv1_1 = self.conv_layer(self.embedded_chars_expanded,filter_size,1,1, 
+            self.conv1_1 = self.conv_layer(self.embedded_chars_expanded,2,embedding_size,1, 
                                            max_length-filter_size+1, "conv1_1")
-            self.conv1_2 = self.conv_layer(self.conv1_1,filter_size,embedding_size,max_length-filter_size +1, 
-                                           max_length-filter_size +1, "conv1_2")
-            self.pool1= tf.nn.max_pool(self.conv1_2, ksize=[1, max_length-filter_size+1, 1, 1], strides=[1, 1, 1, 1],
+            self.pool1= tf.nn.max_pool(self.conv1_1, ksize=[1, max_length-filter_size+1, 1, 1], strides=[1, 1, 1, 1],
                                         padding='SAME', name='pool1')
             
-            self.conv2_1 = self.conv_layer(self.embedded_chars_expanded,filter_size,1,1, 
-                                           max_length-filter_size+1, "conv2_1")
-            self.conv2_2 = self.conv_layer(self.conv2_1,filter_size,1,max_length-filter_size +1, 
-                                           max_length-filter_size+1, "conv2_2")
-            self.conv2_3 = self.conv_layer(self.conv2_2,filter_size,embedding_size,max_length-filter_size+1, 
-                                           max_length-filter_size+1 , "conv2_3")
-            self.pool2 = tf.nn.max_pool(self.conv2_3 , ksize=[1, max_length-filter_size+1, 1, 1], strides=[1, 1, 1, 1],
-                                        padding='SAME', name='pool2')
+            self.conv2_1 = self.conv_layer(self.embedded_chars_expanded,3,embedding_size,1, 
+                                           max_length-filter_size+1, "conv1_1")
+            self.conv2_2 = self.conv_layer(self.conv2_1,2,embedding_size,max_length-filter_size +1, 
+                                           max_length-filter_size +1, "conv1_2")
+            self.pool2= tf.nn.max_pool(self.conv2_2, ksize=[1, max_length-filter_size+1, 1, 1], strides=[1, 1, 1, 1],
+                                        padding='SAME', name='pool1')
             
-            self.conv3_1 = self.conv_layer(self.embedded_chars_expanded,filter_size,1, 1, 
-                                           max_length-filter_size+1, "conv3_1")
-            self.conv3_2 = self.conv_layer(self.conv3_1,filter_size,1, max_length-filter_size +1, 
-                                           max_length-filter_size+1 , "conv3_2")
-            self.conv3_3 = self.conv_layer(self.conv3_2,filter_size,1,max_length-filter_size+1 , 
-                                           max_length-filter_size+1, "conv3_3")
-            self.conv3_4 = self.conv_layer(self.conv3_3,filter_size,embedding_size, max_length-filter_size+1, 
-                                           max_length-filter_size+1, "conv3_4")
-            self.pool3 = tf.nn.max_pool(self.conv3_4, ksize=[1, max_length- filter_size+1, 1, 1], strides=[1, 1, 1, 1],
-                                        padding='SAME', name='pool3')
+            self.conv3_1 = self.conv_layer(self.embedded_chars_expanded,4,embedding_size,1, 
+                                           max_length-filter_size+1, "conv2_1")
+            self.conv3_2 = self.conv_layer(self.conv3_1,3,embedding_size,max_length-filter_size +1, 
+                                           max_length-filter_size+1, "conv2_2")
+            self.conv3_3 = self.conv_layer(self.conv3_2,2,embedding_size,max_length-filter_size+1, 
+                                           max_length-filter_size+1 , "conv2_3")
+            self.pool3 = tf.nn.max_pool(self.conv3_3 , ksize=[1, max_length-filter_size+1, 1, 1], strides=[1, 1, 1, 1],
+                                        padding='SAME', name='pool2')
+
 
             num_filters_total = (max_length-filter_size+1)* (max_length *embedding_size) * 3
             
-        #VGGnet_Trigram
-        #with tf.name_scope('VGGnet_Bigram'):
-            #filter_size = 3
-            #self.conv4_1 = self.conv_layer(self.embedded_chars_expanded,filter_size,1,1, 
-                                           #max_length-filter_size+1, "conv1_1")
-            #self.conv4_2 = self.conv_layer(self.conv4_1,filter_size,embedding_size,max_length-filter_size +1, 
-                                           #max_length-filter_size +1, "conv1_2")
-            #self.pool4= tf.nn.max_pool(self.conv4_2, ksize=[1, max_length-filter_size+1, 1, 1], strides=[1, 1, 1, 1],
-                                       # padding='SAME', name='pool1')
-            
-         
-            #self.conv5_2 = self.conv_layer(self.conv4_1,filter_size,1,max_length-filter_size +1, 
-            #                               max_length-filter_size+1, "conv5_2")
-            #self.conv5_3 = self.conv_layer(self.conv5_2,filter_size,embedding_size,max_length-filter_size+1, 
-            #                               max_length-filter_size+1 , "conv5_3")
-            #self.pool5 = tf.nn.max_pool(self.conv5_3 , ksize=[1, max_length-filter_size+1, 1, 1], strides=[1, 1, 1, 1],
-            #                            padding='SAME', name='pool5')
-            
-
-            #self.conv6_3 = self.conv_layer(self.conv5_2,filter_size,1,max_length-filter_size+1 , 
-                                           #max_length-filter_size+1, "conv3_3")
-            #self.conv6_4 = self.conv_layer(self.conv6_3,filter_size,embedding_size, max_length-filter_size+1, 
-                                           #max_length-filter_size+1, "conv3_4")
-            #self.pool6 = tf.nn.max_pool(self.conv6_4, ksize=[1, max_length- filter_size+1, 1, 1], strides=[1, 1, 1, 1],
-                                        #padding='SAME', name='pool3')
-
-            #num_filters_total += (max_length-filter_size+1)* (max_length *embedding_size) * 2
-            
             total_pools = [self.pool1,self.pool2,self.pool3]    
-            self.pool7 = tf.concat(total_pools, 3)
-            self.pool7_flat = tf.reshape(self.pool7, [-1, num_filters_total])
+            self.pool_h = tf.concat(total_pools, 3)
+            self.pool_h_flat = tf.reshape(self.pool_h, [-1, num_filters_total])
             
         with tf.name_scope('dropout'):
-            self.h_drop = tf.nn.dropout(self.pool7_flat, self.dropout_keep_prob)
+            self.h_drop = tf.nn.dropout(self.pool_h_flat, self.dropout_keep_prob)
                 
         with tf.name_scope('output'):
             W = tf.get_variable('W', shape=[num_filters_total, num_classes],
