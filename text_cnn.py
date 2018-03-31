@@ -3,7 +3,7 @@ import tensorflow as tf
 
 
 class VGG_text(object):  
-    def __init__(self, num_classes, max_length, vocab_size, embedding_size):
+    def __init__(self, num_classes, max_length, num_filters, vocab_size, embedding_size):
 
         
         self.input_x = tf.placeholder(tf.int32, [None, max_length], name='input_x')
@@ -19,8 +19,7 @@ class VGG_text(object):
         #VGGnet_Bigram
         with tf.name_scope('VGGnet_Bigram'):
             filter_size = 3
-            num_filters = max_length-filter_size+1
-            
+            #num_filters = max_length-filter_size+1 
             filter_shape = [3, embedding_size, 1, num_filters]
             W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
             b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')

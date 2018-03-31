@@ -27,14 +27,14 @@ def clean_str(s,max_length):
     #s = re.sub(r"\'re", " \'re", s)
     #s = re.sub(r"\'d", " \'d", s)
     #s = re.sub(r"\'ll", " \'ll", s)
-    #s = re.sub(r",", " , ", s)
-    #s = re.sub(r"!", " ! ", s)
-    #s = re.sub(r"\(", " \( ", s)
-    #s = re.sub(r"\)", " \) ", s)
-    #s = re.sub(r"\?", " \? ", s)
+    s = re.sub(r",", " , ", s)
+    s = re.sub(r"!", " ! ", s)
+    s = re.sub(r"\(", " \( ", s)
+    s = re.sub(r"\)", " \) ", s)
+    s = re.sub(r"\?", " \? ", s)
     #s = re.sub(r"\s{2,}", " ", s)
     #s = re.sub(r'\S*(x{2,}|X{2,})\S*',"xxx", s)
-    #s = re.sub(r'[^\x00-\x7F]+', "", s)
+    s = re.sub(r'[^\x00-\x7F]+', "", s)
     s = s.strip()
     #s = s.strip().lower()
 
@@ -47,11 +47,13 @@ def clean_str(s,max_length):
         result = result[0:max_length]
     elif len(result) < max_length:
         result = result + ["<PAD/>"] * (max_length - len(result))
+        result = result[0:max_length]
+        
     counter_konlpy += 1
     sys.stdout.write("\rParsed: %d / %d" %(counter_konlpy, total_dataset))
     sys.stdout.flush()
     
-    return ' '.join(result)
+    return ' '.join(result).strip()
 
 
 

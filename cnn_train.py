@@ -54,6 +54,7 @@ def train_cnn():
             cnn = VGG_text(
                 num_classes=y_train.shape[1],
                 max_length=params['max_length'],
+                num_filters=params['num_filters'],
                 vocab_size=len(vocab_processor.vocabulary_),
                 embedding_size=params['embedding_dim'])
 
