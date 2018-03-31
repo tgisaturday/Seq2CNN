@@ -39,9 +39,9 @@ def clean_str(s,max_length):
     #s = s.strip().lower()
 
     result = []
-    result = s.split(' ')
-    #mecab = Mecab()
-    #result = mecab.nouns(s)   
+    #result = s.split(' ')
+    mecab = Mecab()
+    result = mecab.nouns(s)   
     
     if len(result) >= max_length:
         result = result[0:max_length]
