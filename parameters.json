@@ -1,7 +1,7 @@
 {
     "num_epochs": 1,
     "batch_size": 200,
-    "max_length": 150,
+    "max_length": 140,
     "num_filters": 32,
     "embedding_dim": 32,
     "evaluate_every": 100,
