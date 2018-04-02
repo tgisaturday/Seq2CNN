@@ -20,13 +20,13 @@ class VGG_text(object):
         with tf.name_scope('VGGnet_Bigram'):
             filter_size = 3
             #num_filters = max_length-filter_size+1 
-            filter_shape = [3, embedding_size, 1, num_filters]
+            filter_shape = [3, embedding_size, 1, num_filters*2]
             W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+            b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
             conv1_1 = tf.nn.conv2d(self.embedded_chars_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv1_1')
             h1_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv1_1, b), alpha=0.1,  name='relu1_1')
             
-            pool1= tf.nn.max_pool(h1_1, ksize=[1, num_filters, 1, 1], strides=[1, 1, 1, 1], padding='SAME', name='pool1')
+            pool1= tf.nn.max_pool(h1_1, ksize=[1, num_filters*2, 1, 1], strides=[1, 1, 1, 1], padding='SAME', name='pool1')
             
             filter_shape = [5, embedding_size, 1, num_filters]
             W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
@@ -34,13 +34,13 @@ class VGG_text(object):
             conv2_1 = tf.nn.conv2d(self.embedded_chars_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv2_1')
             h2_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv2_1, b), alpha=0.1, name='relu2_1')
 
-            filter_shape = [3, embedding_size, num_filters, num_filters]
+            filter_shape = [3, embedding_size, num_filters, num_filters*2]
             W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+            b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
             conv2_2 = tf.nn.conv2d(h2_1, W, strides=[1, 1, 1, 1], padding='SAME', name='conv2_2')
             h2_2 = tf.nn.leaky_relu(tf.nn.bias_add(conv2_2, b), alpha=0.1,  name='relu2_2')
             
-            pool2= tf.nn.max_pool(h2_2, ksize=[1,num_filters, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool1')
+            pool2= tf.nn.max_pool(h2_2, ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool1')
             
             filter_shape = [7, embedding_size, 1, num_filters]
             W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
@@ -48,19 +48,19 @@ class VGG_text(object):
             conv3_1 = tf.nn.conv2d(self.embedded_chars_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv3_1')
             h3_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv3_1, b), alpha=0.1,  name='relu3_1')
             
-            filter_shape = [5, embedding_size, num_filters, num_filters]
+            filter_shape = [5, embedding_size, num_filters, num_filters*2]
             W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+            b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
             conv3_2 = tf.nn.conv2d(h3_1, W, strides=[1, 1, 1, 1], padding='SAME', name='conv3_2')
             h3_2 = tf.nn.leaky_relu(tf.nn.bias_add(conv3_2, b),  alpha=0.1, name='relu3_2')
             
-            filter_shape = [3, embedding_size, num_filters, num_filters]
+            filter_shape = [3, embedding_size, num_filters*2, num_filters*2]
             W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+            b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
             conv3_3 = tf.nn.conv2d(h3_2, W, strides=[1, 1, 1, 1], padding='SAME', name='conv3_3')
             h3_3 = tf.nn.leaky_relu(tf.nn.bias_add(conv3_3, b),  alpha=0.1, name='relu3_3')
             
-            pool3 = tf.nn.max_pool(h3_3 , ksize=[1,num_filters, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool3')
+            pool3 = tf.nn.max_pool(h3_3 , ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool3')
 
             #filter_shape = [7, embedding_size, 1, num_filters]
             #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
@@ -87,7 +87,7 @@ class VGG_text(object):
             #h4_4 = tf.nn.relu(tf.nn.bias_add(conv4_4, b), name='relu4_4')
             
             #pool4 = tf.nn.max_pool(h4_4 , ksize=[1,num_filters, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool4')
-            num_filters_total = num_filters* (max_length *embedding_size) * 3 
+            num_filters_total = num_filters * 6 * (max_length * embedding_size) 
             
             total_pools = [pool1,pool2,pool3]    
             self.pool_h = tf.concat(total_pools, 3)
