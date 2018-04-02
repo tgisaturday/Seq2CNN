@@ -27,11 +27,11 @@ def clean_str(s,max_length):
     #s = re.sub(r"\'re", " \'re", s)
     #s = re.sub(r"\'d", " \'d", s)
     #s = re.sub(r"\'ll", " \'ll", s)
-    s = re.sub(r",", " , ", s)
-    s = re.sub(r"!", " ! ", s)
-    s = re.sub(r"\(", " \( ", s)
-    s = re.sub(r"\)", " \) ", s)
-    s = re.sub(r"\?", " \? ", s)
+    #s = re.sub(r",", " , ", s)
+    #s = re.sub(r"!", " ! ", s)
+    #s = re.sub(r"\(", " \( ", s)
+    #s = re.sub(r"\)", " \) ", s)
+    #s = re.sub(r"\?", " \? ", s)
     #s = re.sub(r"\s{2,}", " ", s)
     #s = re.sub(r'\S*(x{2,}|X{2,})\S*',"xxx", s)
     s = re.sub(r'[^\x00-\x7F]+', "", s)
@@ -39,9 +39,9 @@ def clean_str(s,max_length):
     #s = s.strip().lower()
 
     result = []
-    result = s.split(' ')
-    #mecab = Mecab()
-    #result = mecab.nouns(s)   
+    #result = s.split(' ')
+    mecab = Mecab()
+    result = mecab.morphs(s)   
     
     if len(result) >= max_length:
         result = result[0:max_length]
