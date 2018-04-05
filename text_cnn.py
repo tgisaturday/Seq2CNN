@@ -44,13 +44,13 @@ class seq2CNN(object):
         with tf.name_scope('VGGnet_Bigram'):
             filter_size = 3
 
-            filter_shape = [3, embedding_size, 1, num_filters*2]
-            W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
-            conv1_1 = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv1_1')
-            h1_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv1_1, b), alpha=0.1,  name='relu1_1')
+            #filter_shape = [3, embedding_size, 1, num_filters*2]
+            #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+            #b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
+            #conv1_1 = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv1_1')
+            #h1_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv1_1, b), alpha=0.1,  name='relu1_1')
             
-            pool1= tf.nn.max_pool(h1_1, ksize=[1, num_filters*2, 1, 1], strides=[1, 1, 1, 1], padding='SAME', name='pool1')
+            #pool1= tf.nn.max_pool(h1_1, ksize=[1, num_filters*2, 1, 1], strides=[1, 1, 1, 1], padding='SAME', name='pool1')
             
             filter_shape = [3, embedding_size, 1, num_filters]
             W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
@@ -66,32 +66,32 @@ class seq2CNN(object):
             
             pool2= tf.nn.max_pool(h2_2, ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool1')
             
-            filter_shape = [3, embedding_size, 1, num_filters]
-            W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
-            conv3_1 = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv3_1')
-            h3_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv3_1, b), alpha=0.1,  name='relu3_1')
+            #filter_shape = [3, embedding_size, 1, num_filters]
+           #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+           #b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+            #conv3_1 = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv3_1')
+           # h3_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv3_1, b), alpha=0.1,  name='relu3_1')
             
-            filter_shape = [3, embedding_size, num_filters, num_filters*2]
-            W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
-            conv3_2 = tf.nn.conv2d(h3_1, W, strides=[1, 1, 1, 1], padding='SAME', name='conv3_2')
-            h3_2 = tf.nn.leaky_relu(tf.nn.bias_add(conv3_2, b),  alpha=0.1, name='relu3_2')
+            #filter_shape = [3, embedding_size, num_filters, num_filters*2]
+            #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+            #b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
+            #conv3_2 = tf.nn.conv2d(h3_1, W, strides=[1, 1, 1, 1], padding='SAME', name='conv3_2')
+            #h3_2 = tf.nn.leaky_relu(tf.nn.bias_add(conv3_2, b),  alpha=0.1, name='relu3_2')
             
-            filter_shape = [3, embedding_size, num_filters*2, num_filters*2]
-            W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
-            conv3_3 = tf.nn.conv2d(h3_2, W, strides=[1, 1, 1, 1], padding='SAME', name='conv3_3')
-            h3_3 = tf.nn.leaky_relu(tf.nn.bias_add(conv3_3, b),  alpha=0.1, name='relu3_3')
+            #filter_shape = [3, embedding_size, num_filters*2, num_filters*2]
+            #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+           # b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
+            #conv3_3 = tf.nn.conv2d(h3_2, W, strides=[1, 1, 1, 1], padding='SAME', name='conv3_3')
+            #h3_3 = tf.nn.leaky_relu(tf.nn.bias_add(conv3_3, b),  alpha=0.1, name='relu3_3')
             
-            pool3 = tf.nn.max_pool(h3_3 , ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool3')
+            #pool3 = tf.nn.max_pool(h3_3 , ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool3')
 
-            num_filters_total = num_filters * 6 * (max_summary_length * embedding_size) 
+            num_filters_total = num_filters * 2 * (max_summary_length * embedding_size) 
             
-            total_pools = [pool1,pool2,pool3]    
-            self.pool_h = tf.concat(total_pools, 3)
-            self.pool_h_flat = tf.reshape(self.pool_h, [-1, num_filters_total])
-            #self.pool_h_flat = tf.reshape(pool2, [-1, num_filters_total])
+            #total_pools = [pool1,pool2,pool3]    
+            #self.pool_h = tf.concat(total_pools, 3)
+            #self.pool_h_flat = tf.reshape(self.pool_h, [-1, num_filters_total])
+            self.pool_h_flat = tf.reshape(pool2, [-1, num_filters_total])
             
         with tf.name_scope('dropout'):
             self.h_drop = tf.nn.dropout(self.pool_h_flat, self.dropout_keep_prob)

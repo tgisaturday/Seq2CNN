@@ -1,6 +1,6 @@
 {
     "num_epochs": 3,
-    "batch_size": 128,
+    "batch_size": 64,
     "max_length": 100,
     "max_summary_length": 32,
     "rnn_size": 256,
