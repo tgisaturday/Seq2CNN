@@ -10,7 +10,44 @@ from text_cnn import seq2CNN
 from tensorflow.contrib import learn
 from sklearn.model_selection import train_test_split
 
-logging.getLogger().setLevel(logging.INFO)                
+logging.getLogger().setLevel(logging.INFO)  
+
+def count_words(count_dict, text):
+    '''Count the number of occurrences of each word in a set of text'''
+    for sentence in text:
+        for word in sentence.split():
+            if word not in count_dict:
+                count_dict[word] = 1
+            else:
+                count_dict[word] += 1
+                
+def pad_sentence_batch(vocab_to_int,sentence_batch):
+    """Pad sentences with <PAD> so that each sentence of a batch has the same length"""
+    max_sentence = max([len(sentence) for sentence in sentence_batch])
+    result = []
+    for sentence in sentence_batch:
+        result.append(sentence + [vocab_to_int['PAD']] * (max_sentence - len(sentence)))
+    return result
+
+def convert_to_ints(text,vocab_to_int, word_count, unk_count, eos=False):
+    '''Convert words in text to an integer.
+       If word is not in vocab_to_int, use UNK's integer.
+       Total the number of words and UNKs.
+       Add EOS token to the end of texts'''
+    ints = []
+    for sentence in text:
+        sentence_ints = []
+        for word in sentence.split():
+            word_count += 1
+            if word in vocab_to_int:
+                sentence_ints.append(vocab_to_int[word])
+            else:
+                sentence_ints.append(vocab_to_int["UNK"])
+                unk_count += 1
+        if eos:
+            sentence_ints.append(vocab_to_int["EOS"])
+        ints.append(sentence_ints)
+    return ints, word_count, unk_count
 
 def train_cnn(dataset_name):
     """Step 0: load sentences, labels, and training parameters"""
@@ -22,15 +59,98 @@ def train_cnn(dataset_name):
     else:
         enable_max = False
     x_raw, y_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'],enable_max)
+    word_counts = {}
+    
+    count_words(word_counts, x_raw)
+            
+    logging.info("Size of Vocabulary: {}".format(len(word_counts)))
+
+    # Load Conceptnet Numberbatch's (CN) embeddings, similar to GloVe, but probably better 
+    # (https://github.com/commonsense/conceptnet-numberbatch)
+    embeddings_index = {}
+    with open('./dataset/embeddings/numberbatch-en.txt', encoding='utf-8') as f:
+        for line in f:
+            values = line.split(' ')
+            word = values[0]
+            embedding = np.asarray(values[1:], dtype='float32')
+            embeddings_index[word] = embedding
+    logging.info('Word embeddings: {}'.format(len(embeddings_index)))
+    
+    # Find the number of words that are missing from CN, and are used more than our threshold.
+    missing_words = 0
+    threshold = params['missing_threshhold']
+
+    for word, count in word_counts.items():
+        if count > threshold:
+            if word not in embeddings_index:
+                missing_words += 1
+            
+    missing_ratio = round(missing_words/len(word_counts),4)*100
+            
+    logging.info("Number of words missing from CN: {}".format(missing_words))
+    logging.info("Percent of words that are missing from vocabulary: {0:.2f}%".format(missing_ratio))
+
+    #dictionary to convert words to integers
+    vocab_to_int = {}
+    value = 0
+    for word, count in word_counts.items():
+        if count >= threshold or word in embeddings_index:
+            vocab_to_int[word] = value
+            value += 1
+    # Special tokens that will be added to our vocab
+    codes = ["UNK","PAD","EOS","GO"]   
+
+    # Add codes to vocab
+    for code in codes:
+        vocab_to_int[code] = len(vocab_to_int)
+
+    # Dictionary to convert integers to words
+    int_to_vocab = {}
+    for word, value in vocab_to_int.items():
+        int_to_vocab[value] = word
+    usage_ratio = round(len(vocab_to_int) / len(word_counts),4)*100
+
+    logging.info("Total number of unique words: {}".format(len(word_counts)))
+    logging.info("Number of words we will use: {}".format(len(vocab_to_int)))
+    logging.info("Percent of words we will use: {0:.2f}%".format(usage_ratio))
+    
+    # Need to use 300 for embedding dimensions to match CN's vectors.
+    embedding_dim = 300
+    nb_words = len(vocab_to_int)
+
+    # Create matrix with default values of zero
+    word_embedding_matrix = np.zeros((nb_words, embedding_dim), dtype=np.float32)
+    for word, i in vocab_to_int.items():
+        if word in embeddings_index:
+            word_embedding_matrix[i] = embeddings_index[word]
+        else:
+            # If word not in CN, create a random embedding for it
+            new_embedding = np.array(np.random.uniform(-1.0, 1.0, embedding_dim))
+            embeddings_index[word] = new_embedding
+            word_embedding_matrix[i] = new_embedding
+
+    # Check if value matches len(vocab_to_int)
+    logging.info(len(word_embedding_matrix))
+
+    # Apply convert_to_ints to clean_summaries and clean_texts
+    word_count = 0
+    unk_count = 0
+    int_texts, word_count, unk_count = convert_to_ints(x_raw,vocab_to_int, word_count, unk_count, eos=True)
+
+    unk_percent = round(unk_count/word_count,4)*100
+
+    logging.info("Total number of words in texts: {}".format(word_count))
+    logging.info("Total number of UNKs in headlines: {}".format(unk_count))
+    logging.info("Percent of words that are UNK: {0:.2f}%".format(unk_percent))
     
     """Step 1: pad each sentence to the same length and map each word to an id"""
-    max_document_length = max([len(x.split(' ')) for x in x_raw])
-    logging.info('The maximum length of all sentences: {}'.format(max_document_length))
-    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
-    x = np.array(list(vocab_processor.fit_transform(x_raw)))
+
+    x_int = pad_sentence_batch(vocab_to_int,int_texts)
+    x = np.array(x_int)
     y = np.array(y_raw)
-    t = np.array(list(len(x.split(' ')) for x in x_raw))
-    vocab_dict = vocab_processor.vocabulary_._mapping
+    t = np.array(list(len(x) for x in x_int))
+
+
     
     """Step 2: split the original dataset into train and test sets"""
     x_, x_test, y_, y_test,t_,t_test = train_test_split(x, y, t, test_size=0.1, random_state=42)
@@ -57,13 +177,14 @@ def train_cnn(dataset_name):
         sess = tf.Session(config=session_conf)
         with sess.as_default():
             cnn = seq2CNN(
+                word_embedding_matrix=word_embedding_matrix,
                 num_classes=y_train.shape[1],
                 max_summary_length=params['max_summary_length'],
                 rnn_size=params['rnn_size'],
                 rnn_num_layers=params['rnn_num_layers'],
-                vocab_to_int = vocab_dict,
+                vocab_to_int = vocab_to_int,
                 num_filters=params['num_filters'],
-                vocab_size=len(vocab_processor.vocabulary_),
+                vocab_size=len(word_counts),
                 embedding_size=params['embedding_dim'])
 
             global_step = tf.Variable(0, name="global_step", trainable=False)
@@ -104,7 +225,7 @@ def train_cnn(dataset_name):
                 return num_correct
 
             # Save the word_to_id map since predict.py needs it
-            vocab_processor.save(os.path.join(out_dir, "vocab.pickle"))
+            #vocab_processor.save(os.path.join(out_dir, "vocab.pickle"))
             sess.run(tf.global_variables_initializer())
 
             # Training starts here

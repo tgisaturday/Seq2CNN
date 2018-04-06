@@ -4,7 +4,7 @@ from tensorflow.python.layers.core import Dense
 from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
 
 class seq2CNN(object):  
-    def __init__(self, num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size):
+    def __init__(self, word_embedding_matrix, num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
@@ -13,18 +13,19 @@ class seq2CNN(object):
         self.text_length = tf.placeholder(tf.int32, (None,), name='text_length')
         
         # Embedding layer
-        with tf.device('/cpu:0'), tf.name_scope('embedding'):
-            self.embedding_W = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='embedding_W')
-            self.embedded_chars = tf.nn.embedding_lookup(self.embedding_W, self.input_x) 
-            self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1) 
+        #with tf.device('/cpu:0'), tf.name_scope('embedding'):
+            #embedding_W = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='embedding_W')
+        #self.embedded_chars = tf.nn.embedding_lookup(embeddings, self.input_x) 
+        #self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1) 
         
         #seq2seq layers
         with tf.name_scope('seq2seq'):
-            enc_embed_input = self.embedded_chars
+            embeddings = word_embedding_matrix
+            enc_embed_input = tf.nn.embedding_lookup(embeddings, self.input_x)
             batch_size = tf.reshape(self.batch_size, [])
             enc_output, enc_state = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob)
             #dec_input = process_encoding_input(self.targets, vocab_to_int, batch_size)
-            inference_logits  = decoding_layer( self.embedding_W,
+            inference_logits  = decoding_layer( embeddings,
                                                 enc_output,
                                                 enc_state, 
                                                 vocab_size, 
@@ -36,14 +37,33 @@ class seq2CNN(object):
                                                 batch_size,
                                                 rnn_num_layers)
             self.inference_logits = inference_logits.sample_id 
-        with tf.device('/cpu:0'), tf.name_scope('embedding2'):    
-            #embedding_W2 = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='embedding_W')
-            self.decoder_output = tf.nn.embedding_lookup(self.embedding_W,self.inference_logits)
-            self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)     
+        #with tf.device('/cpu:0'), tf.name_scope('embedding'):    
+            #embedding_W =  tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='embedding_W')
+        self.decoder_output = tf.nn.embedding_lookup(word_embedding_matrix, self.inference_logits)
+        self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)     
         #VGGnet_Bigram
         with tf.name_scope('VGGnet_Bigram'):
-            filter_size = 3
-
+            filter_sizes=[3,4,5]
+            pooled_outputs = []
+            for i, filter_size in enumerate(filter_sizes):
+                with tf.name_scope('conv-maxpool-%s' % filter_size):
+                    # Convolution Layer
+                    filter_shape = [filter_size, embedding_size, 1, num_filters]
+                    W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+                    b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+                    conv = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
+                    # Apply nonlinearity
+                    h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
+                    # Maxpooling over the outputs
+                    pooled = tf.nn.max_pool(h, ksize=[1, sequence_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],
+                                        padding='VALID', name='pool')
+                    pooled_outputs.append(pooled)
+            # Combine all the pooled features
+            num_filters_total = num_filters * len(filter_sizes)
+            self.h_pool = tf.concat(pooled_outputs, 3)
+            self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
+            
+            #filter_size = 3
             #filter_shape = [3, embedding_size, 1, num_filters*2]
             #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
             #b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
@@ -52,19 +72,19 @@ class seq2CNN(object):
             
             #pool1= tf.nn.max_pool(h1_1, ksize=[1, num_filters*2, 1, 1], strides=[1, 1, 1, 1], padding='SAME', name='pool1')
             
-            filter_shape = [3, embedding_size, 1, num_filters]
-            W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
-            conv2_1 = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv2_1')
-            h2_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv2_1, b), alpha=0.1, name='relu2_1')
+            #filter_shape = [3, embedding_size, 1, num_filters]
+            #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+            #b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+            #conv2_1 = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv2_1')
+            #h2_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv2_1, b), alpha=0.1, name='relu2_1')
 
-            filter_shape = [3, embedding_size, num_filters, num_filters*2]
-            W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
-            conv2_2 = tf.nn.conv2d(h2_1, W, strides=[1, 1, 1, 1], padding='SAME', name='conv2_2')
-            h2_2 = tf.nn.leaky_relu(tf.nn.bias_add(conv2_2, b), alpha=0.1,  name='relu2_2')
+            #filter_shape = [3, embedding_size, num_filters, num_filters*2]
+            #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+            #b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
+            #conv2_2 = tf.nn.conv2d(h2_1, W, strides=[1, 1, 1, 1], padding='SAME', name='conv2_2')
+            #h2_2 = tf.nn.leaky_relu(tf.nn.bias_add(conv2_2, b), alpha=0.1,  name='relu2_2')
             
-            pool2= tf.nn.max_pool(h2_2, ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool1')
+            #pool2= tf.nn.max_pool(h2_2, ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool2')
             
             #filter_shape = [3, embedding_size, 1, num_filters]
            #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
@@ -86,12 +106,12 @@ class seq2CNN(object):
             
             #pool3 = tf.nn.max_pool(h3_3 , ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool3')
 
-            num_filters_total = num_filters * 2 * (max_summary_length * embedding_size) 
+            #num_filters_total = num_filters * 2 * (max_summary_length * embedding_size) 
             
             #total_pools = [pool1,pool2,pool3]    
             #self.pool_h = tf.concat(total_pools, 3)
             #self.pool_h_flat = tf.reshape(self.pool_h, [-1, num_filters_total])
-            self.pool_h_flat = tf.reshape(pool2, [-1, num_filters_total])
+            #self.pool_h_flat = tf.reshape(pool2, [-1, num_filters_total])
             
         with tf.name_scope('dropout'):
             self.h_drop = tf.nn.dropout(self.pool_h_flat, self.dropout_keep_prob)

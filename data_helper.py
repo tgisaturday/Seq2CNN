@@ -43,7 +43,7 @@ def clean_str(text,max_length,enable_max):
             text = text + ["<PAD>"] * (max_length - len(text))
             text = text[0:max_length]
         
-    return '<GO> '+' '.join(text).strip()+' <EOS>'
+    return '<GO> '+' '.join(text).strip()
 
 
 

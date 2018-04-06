@@ -1,13 +1,14 @@
 {
     "num_epochs": 3,
     "batch_size": 64,
-    "max_length": 100,
-    "max_summary_length": 32,
+    "missing_threshhold": 20,
+    "max_length": 300,
+    "max_summary_length": 50,
     "rnn_size": 256,
     "rnn_num_layers": 2,
     "num_filters": 32,
-    "embedding_dim": 128,
-    "evaluate_every": 50,
+    "embedding_dim": 300,
+    "evaluate_every": 10,
     "dropout_keep_prob": 0.5,
     "enable_max_len": 0
 }
