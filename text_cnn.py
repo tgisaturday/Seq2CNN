@@ -114,7 +114,8 @@ class seq2CNN(object):
             #self.pool_h_flat = tf.reshape(pool2, [-1, num_filters_total])
             
         with tf.name_scope('dropout'):
-            self.h_drop = tf.nn.dropout(self.pool_h_flat, self.dropout_keep_prob)
+            #self.h_drop = tf.nn.dropout(self.pool_h_flat, self.dropout_keep_prob)
+            self.h_drop = tf.nn.dropout(self.h_pool_flat, self.dropout_keep_prob)
                 
         with tf.name_scope('output'):
             W = tf.get_variable('W', shape=[num_filters_total, num_classes],
