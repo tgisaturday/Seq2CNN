@@ -140,7 +140,7 @@ def train_cnn(dataset_name):
     unk_percent = round(unk_count/word_count,4)*100
 
     logging.info("Total number of words in texts: {}".format(word_count))
-    logging.info("Total number of UNKs in headlines: {}".format(unk_count))
+    logging.info("Total number of UNKs in  texts: {}".format(unk_count))
     logging.info("Percent of words that are UNK: {0:.2f}%".format(unk_percent))
     
     """Step 1: pad each sentence to the same length and map each word to an id"""
@@ -149,18 +149,20 @@ def train_cnn(dataset_name):
     x = np.array(x_int)
     y = np.array(y_raw)
     t = np.array(list(len(x) for x in x_int))
+    s = np.array(list(params['max_summary_length'] for x in x_int))
 
 
     
     """Step 2: split the original dataset into train and test sets"""
-    x_, x_test, y_, y_test,t_,t_test = train_test_split(x, y, t, test_size=0.1, random_state=42)
+    x_, x_test, y_, y_test,t_,t_test,s_,s_test = train_test_split(x, y, t, s, test_size=0.1, random_state=42)
 
     """Step 3: shuffle the train set and split the train set into train and dev sets"""
     shuffle_indices = np.random.permutation(np.arange(len(y_)))
     x_shuffled = x_[shuffle_indices]
     y_shuffled = y_[shuffle_indices]
     t_shuffled = t_[shuffle_indices]
-    x_train, x_dev, y_train, y_dev, t_train, t_dev = train_test_split(x_shuffled, y_shuffled, t_shuffled, test_size=0.1)
+    s_shuffled = s_[shuffle_indices]
+    x_train, x_dev, y_train, y_dev, t_train, t_dev,s_train, s_dev = train_test_split(x_shuffled, y_shuffled, t_shuffled,s_shuffled, test_size=0.1)
 
     """Step 4: save the labels into labels.json since predict.py needs it"""
     with open('./labels.json', 'w') as outfile:
@@ -169,6 +171,7 @@ def train_cnn(dataset_name):
     logging.info('x_train: {}, x_dev: {}, x_test: {}'.format(len(x_train), len(x_dev), len(x_test)))
     logging.info('y_train: {}, y_dev: {}, y_test: {}'.format(len(y_train), len(y_dev), len(y_test)))
     logging.info('t_train: {}, t_dev: {}, t_test: {}'.format(len(t_train), len(t_dev), len(t_test)))
+    logging.info('s_train: {}, s_dev: {}, s_test: {}'.format(len(s_train), len(s_dev), len(s_test)))
 
     """Step 5: build a graph and cnn object"""
     graph = tf.Graph()
@@ -188,7 +191,7 @@ def train_cnn(dataset_name):
                 embedding_size=params['embedding_dim'])
 
             global_step = tf.Variable(0, name="global_step", trainable=False)
-            optimizer = tf.train.AdamOptimizer(1e-3)
+            optimizer = tf.train.AdamOptimizer(1e-2)
 
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
             train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
@@ -203,21 +206,23 @@ def train_cnn(dataset_name):
             saver = tf.train.Saver(tf.global_variables())
 
             # One training step: train the model with one batch
-            def train_step(x_batch, y_batch,t_batch):
+            def train_step(x_batch, y_batch,t_batch,s_batch):
                 feed_dict = {
                     cnn.input_x: x_batch,
                     cnn.input_y: y_batch,
                     cnn.text_length: t_batch,
+                    cnn.summary_length: s_batch,
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob']}
                 _, step, loss, acc = sess.run([train_op, global_step, cnn.loss, cnn.accuracy], feed_dict)
 
             # One evaluation step: evaluate the model with one batch
-            def dev_step(x_batch, y_batch, t_batch):
+            def dev_step(x_batch, y_batch, t_batch,s_batch):
                 feed_dict = {
                     cnn.input_x: x_batch, 
                     cnn.input_y: y_batch,
                     cnn.text_length: t_batch,
+                    cnn.summary_length: s_batch,
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: 1.0}
                 step, loss, acc, num_correct = sess.run([global_step, cnn.loss, cnn.accuracy, cnn.num_correct],
@@ -229,23 +234,23 @@ def train_cnn(dataset_name):
             sess.run(tf.global_variables_initializer())
 
             # Training starts here
-            train_batches = data_helper.batch_iter(list(zip(x_train, y_train,t_train)), params['batch_size'],
+            train_batches = data_helper.batch_iter(list(zip(x_train, y_train,t_train,s_train)), params['batch_size'],
                                                    params['num_epochs'])
             best_accuracy, best_at_step = 0, 0
 
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
             for train_batch in train_batches:
-                x_train_batch, y_train_batch, t_train_batch = zip(*train_batch)
-                train_step(x_train_batch, y_train_batch,t_train_batch)
+                x_train_batch, y_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
+                train_step(x_train_batch, y_train_batch,t_train_batch,s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
                 
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""
                 if current_step % params['evaluate_every'] == 0:
-                    dev_batches = data_helper.batch_iter(list(zip(x_dev, y_dev,t_dev)), params['batch_size'], 1)
+                    dev_batches = data_helper.batch_iter(list(zip(x_dev, y_dev,t_dev,s_dev)), params['batch_size'], 1)
                     total_dev_correct = 0
                     for dev_batch in dev_batches:
                         x_dev_batch, y_dev_batch,t_dev_batch = zip(*dev_batch)
-                        num_dev_correct = dev_step(x_dev_batch, y_dev_batch,t_dev_batch)
+                        num_dev_correct = dev_step(x_dev_batch, y_dev_batch,t_dev_batch,s_dev_batch)
                         total_dev_correct += num_dev_correct
 
                     dev_accuracy = float(total_dev_correct) / len(y_dev)
@@ -259,11 +264,11 @@ def train_cnn(dataset_name):
                         logging.critical('Best accuracy is {} at step {}'.format(best_accuracy, best_at_step))
 
             """Step 7: predict x_test (batch by batch)"""
-            test_batches = data_helper.batch_iter(list(zip(x_test, y_test,t_test)), params['batch_size'], 1)
+            test_batches = data_helper.batch_iter(list(zip(x_test, y_test,t_test,s_test)), params['batch_size'], 1)
             total_test_correct = 0
             for test_batch in test_batches:
-                x_test_batch, y_test_batch, t_test_batch = zip(*test_batch)
-                num_test_correct = dev_step(x_test_batch, y_test_batch,t_test_batch)
+                x_test_batch, y_test_batch, t_test_batch,s_test_batch = zip(*test_batch)
+                num_test_correct = dev_step(x_test_batch, y_test_batch,t_test_batch,s_test_batch)
                 total_test_correct += num_test_correct
             path = saver.save(sess, checkpoint_prefix)
             test_accuracy = float(total_test_correct) / len(y_test)

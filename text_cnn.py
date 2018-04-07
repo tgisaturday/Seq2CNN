@@ -10,7 +10,9 @@ class seq2CNN(object):
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
         self.dropout_keep_prob = tf.placeholder(tf.float32, name='dropout_keep_prob')
         self.batch_size = tf.placeholder(tf.int32, name='batch_size')
+        self.targets = tf.placeholder(tf.int32, [None, None], name='targets')
         self.text_length = tf.placeholder(tf.int32, (None,), name='text_length')
+        self.summary_length = tf.placeholder(tf.int32, (None,), name='summary_length')
         
         # Embedding layer
         #with tf.device('/cpu:0'), tf.name_scope('embedding'):
@@ -24,22 +26,27 @@ class seq2CNN(object):
             enc_embed_input = tf.nn.embedding_lookup(embeddings, self.input_x)
             batch_size = tf.reshape(self.batch_size, [])
             enc_output, enc_state = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob)
-            #dec_input = process_encoding_input(self.targets, vocab_to_int, batch_size)
-            inference_logits  = decoding_layer( embeddings,
+            
+            dec_input = process_encoding_input(self.targets, vocab_to_int, batch_size)
+            dec_embed_input = tf.nn.embedding_lookup(embeddings, dec_input)
+            training_logits  = decoding_layer(dec_embed_input,
                                                 enc_output,
                                                 enc_state, 
                                                 vocab_size, 
                                                 self.text_length,
+                                                self.summary_length,
                                                 max_summary_length,
                                                 rnn_size, 
                                                 vocab_to_int, 
                                                 self.dropout_keep_prob, 
                                                 batch_size,
                                                 rnn_num_layers)
-            self.inference_logits = inference_logits.sample_id 
+            self.training_logits = tf.identity(training_logits.rnn_output, 'logits')
+            #self.inference_logits = tf.identity(inference_logits.sample_id, name='predictions')
+
         #with tf.device('/cpu:0'), tf.name_scope('embedding'):    
             #embedding_W =  tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='embedding_W')
-        self.decoder_output = tf.nn.embedding_lookup(word_embedding_matrix, self.inference_logits)
+        self.decoder_output = tf.nn.embedding_lookup(word_embedding_matrix, self.training_logits)
         self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)     
         #VGGnet_Bigram
         with tf.name_scope('VGGnet_Bigram'):
@@ -169,6 +176,26 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     enc_output = tf.concat(enc_output,2)
     
     return enc_output, enc_state
+def training_decoding_layer(dec_embed_input, summary_length, dec_cell, initial_state, output_layer, 
+                            vocab_size, max_summary_length, batch_size):
+    '''Create the training logits'''
+    start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
+    #training_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,
+                                                                #start_tokens,
+                                                                #end_token)
+    training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=dec_embed_input,
+                                                        sequence_length=summary_length,
+                                                        time_major=False)
+    training_decoder = tf.contrib.seq2seq.BasicDecoder(dec_cell,
+                                                       training_helper,
+                                                       initial_state,
+                                                       output_layer) 
+
+    training_logits,_ = tf.contrib.seq2seq.dynamic_decode(training_decoder,
+                                                           output_time_major=False,
+                                                           impute_finished=True,
+                                                          maximum_iterations=max_summary_length)
+    return training_logits
 
 def inference_decoding_layer(embeddings, start_token, end_token, dec_cell, initial_state, output_layer, max_summary_length, batch_size):
     '''Create the inference logits'''
@@ -179,7 +206,7 @@ def inference_decoding_layer(embeddings, start_token, end_token, dec_cell, initi
                                                                 start_tokens,
                                                                 end_token)
                 
-    inference_decoder = tf.contrib.seq2seq.BasicDecoder(dec_cell,
+    inference_decoder, _, _  = tf.contrib.seq2seq.BasicDecoder(dec_cell,
                                                         inference_helper,
                                                         initial_state,
                                                         output_layer)
@@ -191,7 +218,7 @@ def inference_decoding_layer(embeddings, start_token, end_token, dec_cell, initi
     
     return inference_logits
 
-def decoding_layer(embeddings, enc_output, enc_state, vocab_size, text_length,
+def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length,
                    max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers):
     '''Create the decoding cell and attention for the training and inference decoding layers'''
     
@@ -214,25 +241,36 @@ def decoding_layer(embeddings, enc_output, enc_state, vocab_size, text_length,
     dec_cell = tf.contrib.seq2seq.AttentionWrapper(dec_cell,
                                                    attention_mechanism = attn_mech,
                                                    attention_layer_size = rnn_size,
-                                                   name='Attention_Wrapper' )
-    initial_state =dec_cell.zero_state(dtype=tf.float32, batch_size=batch_size)       
-    #initial_state = tf.contrib.seq2seq.DynamicAttentionWrapperState(cell_state=enc_state[0],
+                                                   name='Attention_Wrapper')
+    
+    initial_state =dec_cell.zero_state(dtype=tf.float32, batch_size=batch_size)
+    initial_state = initial_state.clone(cell_state=enc_state[0])
+    #initial_state = tf.contrib.seq2seq.AttentionWrapperState(cell_state=enc_state[0],
                                                              #attention=_zero_state_tensors(rnn_size, 
-                                                                                       # batch_size, 
-                                                                                       # tf.float32),
-                                                          #  ) 
-       
+                                                                                       #batch_size, 
+                                                                                        #tf.float32),
+                                                           #) 
     with tf.variable_scope("decode"):
-        inference_logits = inference_decoding_layer(embeddings,  
-                                                    vocab_to_int['GO'], 
-                                                    vocab_to_int['EOS'],
-                                                    dec_cell, 
-                                                    initial_state, 
-                                                    output_layer,
-                                                    max_summary_length,
-                                                    batch_size)
+        training_logits = training_decoding_layer(dec_embed_input,
+                                                  summary_length, 
+                                                  dec_cell, 
+                                                  initial_state,
+                                                  output_layer,
+                                                  vocab_size, 
+                                                  max_summary_length,
+                                                  batch_size)  
+        
+    #with tf.variable_scope("decode",  reuse=True):
+        #inference_logits = inference_decoding_layer(embeddings,  
+                                                    #vocab_to_int['GO'], 
+                                                    #vocab_to_int['EOS'],
+                                                   # dec_cell, 
+                                                   # initial_state, 
+                                                   # output_layer,
+                                                  #  max_summary_length,
+                                                 #   batch_size)
 
-    return inference_logits
+    return training_logits
 
 def get_batches(summaries, texts, batch_size):
     """Batch summaries, texts, and the lengths of their sentences together"""
