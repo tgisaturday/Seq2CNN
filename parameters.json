@@ -1,9 +1,9 @@
 {
     "num_epochs": 3,
-    "batch_size": 128,
-    "missing_threshhold": 20,
-    "max_length": 300,
-    "max_summary_length": 100,
+    "batch_size": 32,
+    "missing_threshhold": 5,
+    "max_length": 1500,
+    "max_summary_length": 150,
     "rnn_size": 256,
     "rnn_num_layers": 2,
     "num_filters": 32,

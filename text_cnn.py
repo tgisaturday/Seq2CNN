@@ -14,11 +14,6 @@ class seq2CNN(object):
         self.text_length = tf.placeholder(tf.int32, (None,), name='text_length')
         self.summary_length = tf.placeholder(tf.int32, (None,), name='summary_length')
         
-        # Embedding layer
-        #with tf.device('/cpu:0'), tf.name_scope('embedding'):
-            #embedding_W = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='embedding_W')
-        #self.embedded_chars = tf.nn.embedding_lookup(embeddings, self.input_x) 
-        #self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1) 
         
         #seq2seq layers
         with tf.name_scope('seq2seq'):
@@ -29,7 +24,8 @@ class seq2CNN(object):
             
             dec_input = process_encoding_input(self.targets, vocab_to_int, batch_size)
             dec_embed_input = tf.nn.embedding_lookup(embeddings, dec_input)
-            training_logits  = decoding_layer(dec_embed_input,
+            training_logits,inference_logits  = decoding_layer(dec_embed_input,
+                                                embeddings,
                                                 enc_output,
                                                 enc_state, 
                                                 vocab_size, 
@@ -41,36 +37,38 @@ class seq2CNN(object):
                                                 self.dropout_keep_prob, 
                                                 batch_size,
                                                 rnn_num_layers)
-            self.training_logits = tf.identity(training_logits.rnn_output, 'logits')
             #self.inference_logits = tf.identity(inference_logits.sample_id, name='predictions')
+            self.training_logits =tf.argmax(training_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
+        self.training_logits = tf.reshape(self.training_logits, [batch_size,max_summary_length])
 
-        #with tf.device('/cpu:0'), tf.name_scope('embedding'):    
-            #embedding_W =  tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='embedding_W')
-        self.decoder_output = tf.nn.embedding_lookup(word_embedding_matrix, self.training_logits)
-        self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)     
+        with tf.name_scope('output_embedding'):            
+            embeddings = word_embedding_matrix   
+            self.decoder_output = tf.nn.embedding_lookup(embeddings,self.training_logits)
+        #self.decoder_output = self.training_logits
+            self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)     
         #VGGnet_Bigram
         with tf.name_scope('VGGnet_Bigram'):
-            filter_sizes=[3,4,5]
-            pooled_outputs = []
-            for i, filter_size in enumerate(filter_sizes):
-                with tf.name_scope('conv-maxpool-%s' % filter_size):
+            #filter_sizes=[3,4,5]
+            #pooled_outputs = []
+            #for i, filter_size in enumerate(filter_sizes):
+               #with tf.name_scope('conv-maxpool-%s' % filter_size):
                     # Convolution Layer
-                    filter_shape = [filter_size, embedding_size, 1, num_filters]
-                    W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-                    b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
-                    conv = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
+                    #filter_shape = [filter_size, embedding_size, 1, num_filters]
+                    #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+                   # b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+                    #conv = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
                     # Apply nonlinearity
-                    h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
+                   # h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
                     # Maxpooling over the outputs
-                    pooled = tf.nn.max_pool(h, ksize=[1, max_summary_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],
-                                        padding='VALID', name='pool')
-                    pooled_outputs.append(pooled)
+                    #pooled = tf.nn.max_pool(h, ksize=[1, max_summary_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],
+                                       # padding='VALID', name='pool')
+                    #pooled_outputs.append(pooled)
             # Combine all the pooled features
-            num_filters_total = num_filters * len(filter_sizes)
-            self.h_pool = tf.concat(pooled_outputs, 3)
-            self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
+           # num_filters_total = num_filters * len(filter_sizes)
+            #self.h_pool = tf.concat(pooled_outputs, 3)
+            #self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
             
-            #filter_size = 3
+            filter_size = 3
             #filter_shape = [3, embedding_size, 1, num_filters*2]
             #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
             #b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
@@ -79,19 +77,19 @@ class seq2CNN(object):
             
             #pool1= tf.nn.max_pool(h1_1, ksize=[1, num_filters*2, 1, 1], strides=[1, 1, 1, 1], padding='SAME', name='pool1')
             
-            #filter_shape = [3, embedding_size, 1, num_filters]
-            #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            #b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
-            #conv2_1 = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv2_1')
-            #h2_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv2_1, b), alpha=0.1, name='relu2_1')
+            filter_shape = [3, embedding_size, 1, num_filters]
+            W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+            b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+            conv2_1 = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv2_1')
+            h2_1 = tf.nn.leaky_relu(tf.nn.bias_add(conv2_1, b), alpha=0.1, name='relu2_1')
 
-            #filter_shape = [3, embedding_size, num_filters, num_filters*2]
-            #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-            #b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
-            #conv2_2 = tf.nn.conv2d(h2_1, W, strides=[1, 1, 1, 1], padding='SAME', name='conv2_2')
-            #h2_2 = tf.nn.leaky_relu(tf.nn.bias_add(conv2_2, b), alpha=0.1,  name='relu2_2')
+            filter_shape = [3, embedding_size, num_filters, num_filters*2]
+            W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+            b = tf.Variable(tf.constant(0.1, shape=[num_filters*2]), name='b')
+            conv2_2 = tf.nn.conv2d(h2_1, W, strides=[1, 1, 1, 1], padding='SAME', name='conv2_2')
+            h2_2 = tf.nn.leaky_relu(tf.nn.bias_add(conv2_2, b), alpha=0.1,  name='relu2_2')
             
-            #pool2= tf.nn.max_pool(h2_2, ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool2')
+            pool2= tf.nn.max_pool(h2_2, ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool2')
             
             #filter_shape = [3, embedding_size, 1, num_filters]
            #W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
@@ -113,12 +111,12 @@ class seq2CNN(object):
             
             #pool3 = tf.nn.max_pool(h3_3 , ksize=[1,num_filters*2, 1, 1], strides=[1, 1, 1, 1],padding='SAME', name='pool3')
 
-            #num_filters_total = num_filters * 2 * (max_summary_length * embedding_size) 
+            num_filters_total = num_filters * 2 * (max_summary_length * embedding_size) 
             
             #total_pools = [pool1,pool2,pool3]    
             #self.pool_h = tf.concat(total_pools, 3)
             #self.pool_h_flat = tf.reshape(self.pool_h, [-1, num_filters_total])
-            #self.pool_h_flat = tf.reshape(pool2, [-1, num_filters_total])
+            self.h_pool_flat = tf.reshape(pool2, [-1, num_filters_total])
             
         with tf.name_scope('dropout'):
             #self.h_drop = tf.nn.dropout(self.pool_h_flat, self.dropout_keep_prob)
@@ -176,10 +174,11 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     enc_output = tf.concat(enc_output,2)
     
     return enc_output, enc_state
+
 def training_decoding_layer(dec_embed_input, summary_length, dec_cell, initial_state, output_layer, 
                             vocab_size, max_summary_length, batch_size):
     '''Create the training logits'''
-    start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
+    #start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
     #training_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,
                                                                 #start_tokens,
                                                                 #end_token)
@@ -191,7 +190,7 @@ def training_decoding_layer(dec_embed_input, summary_length, dec_cell, initial_s
                                                        initial_state,
                                                        output_layer) 
 
-    training_logits,_ = tf.contrib.seq2seq.dynamic_decode(training_decoder,
+    training_logits = tf.contrib.seq2seq.dynamic_decode(training_decoder,
                                                            output_time_major=False,
                                                            impute_finished=True,
                                                           maximum_iterations=max_summary_length)
@@ -264,13 +263,13 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
         #inference_logits = inference_decoding_layer(embeddings,  
                                                     #vocab_to_int['GO'], 
                                                     #vocab_to_int['EOS'],
-                                                   # dec_cell, 
-                                                   # initial_state, 
-                                                   # output_layer,
-                                                  #  max_summary_length,
-                                                 #   batch_size)
-
-    return training_logits
+                                                    #dec_cell, 
+                                                    #initial_state, 
+                                                    #output_layer,
+                                                    #max_summary_length,
+                                                   # batch_size)
+    inference_logits = None
+    return training_logits, inference_logits
 
 def get_batches(summaries, texts, batch_size):
     """Batch summaries, texts, and the lengths of their sentences together"""
