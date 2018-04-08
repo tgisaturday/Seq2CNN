@@ -130,7 +130,7 @@ def train_cnn(dataset_name):
             word_embedding_matrix[i] = new_embedding
 
     # Check if value matches len(vocab_to_int)
-    logging.info(len(word_embedding_matrix))
+    #logging.info(len(word_embedding_matrix))
 
     # Apply convert_to_ints to clean_summaries and clean_texts
     word_count = 0
@@ -195,7 +195,7 @@ def train_cnn(dataset_name):
                 embedding_size=params['embedding_dim'])
 
             global_step = tf.Variable(0, name="global_step", trainable=False)
-            optimizer = tf.train.AdamOptimizer(1e-2)
+            optimizer = tf.train.AdamOptimizer(1e-3)
 
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
             train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
@@ -220,7 +220,7 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob']}
                 _, logits, step, loss, acc = sess.run([train_op,cnn.training_logits, global_step, cnn.loss, cnn.accuracy], feed_dict)
-                return logits
+                return loss, acc
 
             # One evaluation step: evaluate the model with one batch
             def dev_step(x_batch, y_batch,target_batch, t_batch,s_batch):
@@ -248,7 +248,7 @@ def train_cnn(dataset_name):
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
-                logits = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
+                train_loss, train_acc = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
 
                 
