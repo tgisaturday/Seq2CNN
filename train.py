@@ -54,6 +54,7 @@ def train_cnn(dataset_name):
     dataset = './dataset/'+dataset_name+'_csv/train.csv'
     parameter_file = "./parameters.json"
     params = json.loads(open(parameter_file).read())
+    learning_rate = params['learning_rate']
     if params['enable_max_len'] == 1:
         enable_max = True
     else:
@@ -195,7 +196,7 @@ def train_cnn(dataset_name):
                 embedding_size=params['embedding_dim'])
 
             global_step = tf.Variable(0, name="global_step", trainable=False)
-            optimizer = tf.train.AdamOptimizer(1e-3)
+            optimizer = tf.train.AdamOptimizer(learning_rate)
 
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
             train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
@@ -250,6 +251,8 @@ def train_cnn(dataset_name):
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 train_loss, train_acc = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
+                if current_step%10==0:
+                    logging.critical('step: {} accuracy: {} loss: {}'.format(current_step, train_acc, train_loss))
 
                 
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""

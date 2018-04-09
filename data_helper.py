@@ -10,7 +10,6 @@ import os
 from nltk.corpus import stopwords
 from collections import Counter
 from contractions import get_contractions
-from textrank import TextRank, RawSentenceReader
 from summa.summarizer import summarize
 
 def clean_str(text,max_length,enable_max):
@@ -49,7 +48,7 @@ def clean_str(text,max_length,enable_max):
 def gen_summary(text,max_length):
     """Clean sentence"""
     sentence = summarize(text, words=max_length)
-    if sentence != '' and len(sentence) > 0.75*max_length:
+    if sentence != '' and len(sentence) > 0.5*max_length:
         text = sentence
     text = text.lower()
     text = text.split()

@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.layers.core import Dense
 from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
+import ntm.ntm_cell as ntm_cell
 
 class seq2CNN(object):  
     def __init__(self, word_embedding_matrix, num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size):
@@ -155,15 +156,32 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     
     for layer in range(num_layers):
         with tf.variable_scope('encoder_{}'.format(layer)):
-            cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,
-                                              initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, 
-                                                    input_keep_prob = keep_prob)
-
-            cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,
-                                              initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw, 
-                                                    input_keep_prob = keep_prob)
+            #cell_fw = ntm_cell.NTMCell(    
+                                       #rnn_size=rnn_size,           
+                                       #memory_size=128,        
+                                      # memory_vector_dim=20,   
+                                       #read_head_num=1,        
+                                      # write_head_num=1,      
+                                      # addressing_mode='content_and_location', 
+                                      # reuse=False
+                                      # )           
+            #cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,
+                                              #initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            cell_fw = tf.contrib.rnn.GRUCell(rnn_size)               
+            cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
+            #cell_bw = ntm_cell.NTMCell(    
+                                       #rnn_size=rnn_size,           
+                                       #memory_size=128,        
+                                       #memory_vector_dim=20,   
+                                       #read_head_num=1,        
+                                       #write_head_num=1,      
+                                       #addressing_mode='content_and_location', 
+                                       #reuse=False
+                                       #)  
+            #cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,
+                                              #initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            cell_bw = tf.contrib.rnn.GRUCell(rnn_size)                                                       
+            cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
 
             enc_output, enc_state = tf.nn.bidirectional_dynamic_rnn(cell_fw, 
                                                                     cell_bw, 
@@ -223,8 +241,18 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
     
     for layer in range(num_layers):
         with tf.variable_scope('decoder_{}'.format(layer)):
-            lstm = tf.contrib.rnn.LSTMCell(rnn_size,
-                                           initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            #lstm = ntm_cell.NTMCell(    
+                                   # rnn_size=rnn_size,           
+                                    #memory_size=128,        
+                                    #memory_vector_dim=20,   
+                                    #read_head_num=1,        
+                                    #write_head_num=1,      
+                                    #addressing_mode='content_and_location', 
+                                    #reuse=False
+                                    #)
+            #lstm = tf.contrib.rnn.LSTMCell(rnn_size,
+                                           #initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            lstm = tf.contrib.rnn.GRUCell(rnn_size)             
             dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, 
                                                      input_keep_prob = keep_prob)
     
