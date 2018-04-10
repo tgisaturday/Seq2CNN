@@ -63,10 +63,6 @@ def train_cnn(dataset_name):
         enable_keywords = True
     else:
         enable_keywords = False
-    if params['greedy_embedding_helper'] == 1:
-         greedy_embedding = True
-    else:
-         greedy_embedding = False
         
     x_raw, y_raw, target_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
     word_counts = {}
@@ -207,14 +203,18 @@ def train_cnn(dataset_name):
                 vocab_to_int = vocab_to_int,
                 num_filters=params['num_filters'],
                 vocab_size=len(word_counts),
-                embedding_size=params['embedding_dim'],
-                greedy = greedy_embedding)
-
+                embedding_size=params['embedding_dim']
+                )
+            
             global_step = tf.Variable(0, name="global_step", trainable=False)
+
             optimizer = tf.train.AdamOptimizer(learning_rate)
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+
 
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
-            train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+            with tf.control_dependencies(update_ops):
+                train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
             timestamp = str(int(time.time()))
             out_dir = os.path.abspath(os.path.join(os.path.curdir, "trained_model_" + timestamp))
@@ -234,7 +234,8 @@ def train_cnn(dataset_name):
                     cnn.text_length: t_batch,
                     cnn.summary_length: s_batch,
                     cnn.batch_size: len(x_batch),
-                    cnn.dropout_keep_prob: params['dropout_keep_prob']}
+                    cnn.dropout_keep_prob: params['dropout_keep_prob'],
+                    cnn.is_training: True}
                 _, logits, step, loss, acc = sess.run([train_op,cnn.training_logits, global_step, cnn.loss, cnn.accuracy], feed_dict)
                 return loss, acc
 
@@ -247,7 +248,8 @@ def train_cnn(dataset_name):
                     cnn.text_length: t_batch,
                     cnn.summary_length: s_batch,
                     cnn.batch_size: len(x_batch),
-                    cnn.dropout_keep_prob: 1.0}
+                    cnn.dropout_keep_prob: 1.0,
+                    cnn.is_training: False}
                 step, loss, acc, num_correct = sess.run([global_step, cnn.loss, cnn.accuracy, cnn.num_correct],
                                                         feed_dict)
                 return num_correct
@@ -288,6 +290,9 @@ def train_cnn(dataset_name):
                         path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                         logging.critical('Saved model at {} at step {}'.format(path, best_at_step))
                         logging.critical('Best accuracy is {} at step {}'.format(best_accuracy, best_at_step))
+                decay_steps = params['decay_steps']
+                learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,
+                                           decay_steps, 0.96, staircase=True)
 
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_test,t_test,s_test)), params['batch_size'], 1)
