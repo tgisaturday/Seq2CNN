@@ -5,7 +5,7 @@ from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
 import ntm.ntm_cell as ntm_cell
 
 class seq2CNN(object):  
-    def __init__(self,num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size):
+    def __init__(self,num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size,greedy):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
@@ -41,7 +41,8 @@ class seq2CNN(object):
                                                 vocab_to_int, 
                                                 self.dropout_keep_prob, 
                                                 batch_size,
-                                                rnn_num_layers)
+                                                rnn_num_layers,
+                                                greedy)
             self.training_logits =tf.argmax(training_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
         self.training_logits = tf.reshape(self.training_logits, [batch_size,max_summary_length])
 
@@ -177,22 +178,21 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     
     return enc_output, enc_state
 
-def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_token, end_token, dec_cell, initial_state, output_layer, 
-                            vocab_size, max_summary_length, batch_size):
+def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_token, end_token, dec_cell, initial_state, output_layer, vocab_size, max_summary_length, batch_size,greedy):
     '''Create the training logits'''
-
-    training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=dec_embed_input,
-                                                        sequence_length=summary_length,
-                                                        time_major=False)
-    #start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
+    if greedy:
+        start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
     
-    #training_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,
-                                                                #start_tokens,
-                                                                #end_token)
-    training_decoder = tf.contrib.seq2seq.BasicDecoder(dec_cell,
-                                                       training_helper,
-                                                       initial_state,
-                                                       output_layer) 
+        training_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,start_tokens,end_token)
+    else:
+        training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=dec_embed_input,
+                                                            sequence_length=summary_length,
+                                                            time_major=False)
+
+        training_decoder = tf.contrib.seq2seq.BasicDecoder(dec_cell,
+                                                           training_helper,
+                                                           initial_state,
+                                                           output_layer) 
 
     training_logits = tf.contrib.seq2seq.dynamic_decode(training_decoder,
                                                            output_time_major=False,
@@ -202,8 +202,7 @@ def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_t
 
 
 
-def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length,
-                   max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers):
+def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers,greedy):
     '''Create the decoding cell and attention for the training and inference decoding layers'''
     
     for layer in range(num_layers):
@@ -239,7 +238,7 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
                                                   output_layer,
                                                   vocab_size, 
                                                   max_summary_length,
-                                                  batch_size)  
+                                                  batch_size,greedy)  
 
     return training_logits
 

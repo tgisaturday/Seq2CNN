@@ -63,6 +63,10 @@ def train_cnn(dataset_name):
         enable_keywords = True
     else:
         enable_keywords = False
+    if params['greedy_embedding_helper'] == 1:
+         greedy_embedding = True
+    else:
+         greedy_embedding = False
         
     x_raw, y_raw, target_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
     word_counts = {}
@@ -203,7 +207,8 @@ def train_cnn(dataset_name):
                 vocab_to_int = vocab_to_int,
                 num_filters=params['num_filters'],
                 vocab_size=len(word_counts),
-                embedding_size=params['embedding_dim'])
+                embedding_size=params['embedding_dim'],
+                greedy = greedy_embedding)
 
             global_step = tf.Variable(0, name="global_step", trainable=False)
             optimizer = tf.train.AdamOptimizer(learning_rate)
