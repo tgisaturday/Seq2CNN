@@ -181,15 +181,15 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
 def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_token, end_token, dec_cell, initial_state, output_layer, vocab_size, max_summary_length, batch_size,greedy):
     '''Create the training logits'''
     if greedy:
-        start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
-    
+        start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')    
         training_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,start_tokens,end_token)
+        
     else:
         training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=dec_embed_input,
                                                             sequence_length=summary_length,
                                                             time_major=False)
 
-        training_decoder = tf.contrib.seq2seq.BasicDecoder(dec_cell,
+    training_decoder = tf.contrib.seq2seq.BasicDecoder(dec_cell,
                                                            training_helper,
                                                            initial_state,
                                                            output_layer) 
