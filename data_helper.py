@@ -11,7 +11,7 @@ from nltk.corpus import stopwords
 from collections import Counter
 from contractions import get_contractions
 from summa.summarizer import summarize
-
+from summa.keywords import keywords
 def clean_str(text,max_length,enable_max):
     """Clean sentence"""
     text = text.lower()
@@ -43,6 +43,35 @@ def clean_str(text,max_length,enable_max):
             text = text + ["PAD"] * (max_length - len(text))
             text = text[0:max_length]
         
+    return ' '.join(text).strip()
+def gen_keywords(text,max_length):
+    """Clean sentence"""
+    text = text.lower()
+    text = text.split()
+    new_text = []
+    contractions = get_contractions()
+    for word in text:
+        if word in contractions:
+            new_text.append(contractions[word])
+        else:
+            new_text.append(word)
+    text = " ".join(new_text)
+    # Format words and remove unwanted characters
+    text = re.sub(r'https?:\/\/.*[\r\n]*', '', text, flags=re.MULTILINE)
+    text = re.sub(r'\<a href', ' ', text)
+    text = re.sub(r'&amp;', '', text) 
+    text = re.sub(r'[_"\-;%()|+&=*%.,!?:#$@\[\]/]', ' ', text)
+    text = re.sub(r'<br />', ' ', text)
+    text = re.sub(r'\'', ' ', text)
+    text = keywords(text,split = True)
+    text = " ".join(text)
+    text = text.split()
+    if len(text) >= max_length:
+        text = text[0:max_length]
+    elif len(text) < max_length:
+        text = text + ["PAD"] * (max_length - len(text))
+        text = text[0:max_length]
+
     return '<GO> '+' '.join(text).strip()
 
 def gen_summary(text,max_length):
@@ -78,7 +107,7 @@ def gen_summary(text,max_length):
 
     return '<GO> '+' '.join(text).strip()
 
-def load_data_and_labels(filename,max_length,max_summary_length,enable_max):
+def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enable_keywords):
     """Load sentences and labels"""
     df = pd.read_csv(filename, names=['label', 'company', 'text'], dtype={'text': object})
     selected = ['label', 'text']
@@ -94,7 +123,10 @@ def load_data_and_labels(filename,max_length,max_summary_length,enable_max):
 
     x_raw = df[selected[1]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
     y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
-    target_raw = df[selected[1]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+    if enable_keywords:
+        target_raw = df[selected[1]].apply(lambda x: gen_keywords(x,max_summary_length)).tolist()
+    else:
+        target_raw = df[selected[1]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
 
     return x_raw, y_raw,target_raw, df, labels
 
