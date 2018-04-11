@@ -77,8 +77,7 @@ def gen_keywords(text,max_length):
 def gen_summary(text,max_length):
     """Clean sentence"""
     sentence = summarize(text, words=max_length)
-    if sentence != '' and len(sentence) > 0.5*max_length:
-        text = sentence
+    text = sentence + text
     text = text.lower()
     text = text.split()
     new_text = []
