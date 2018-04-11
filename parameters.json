@@ -1,8 +1,8 @@
 {
-    "num_epochs": 100000,
-    "batch_size": 128,
+    "num_epochs": 10,
+    "batch_size": 256,
     "learning_rate": 0.001,
-    "decay_steps": 100000000,
+    "decay_steps": 100000,
     "missing_threshhold": 10,
     "max_length": 1000,
     "max_summary_length": 32,
