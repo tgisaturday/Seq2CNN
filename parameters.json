@@ -2,16 +2,17 @@
     "num_epochs": 100,
     "batch_size": 128,
     "learning_rate": 0.001,
-    "decay_steps": 10000,
+    "decay_steps": 1000,
     "missing_threshhold": 10,
     "max_length": 1000,
-    "max_summary_length": 50,
-    "rnn_size": 128,
+    "max_summary_length": 64,
+    "rnn_size": 256,
     "rnn_num_layers": 2,
     "num_filters": 32,
     "embedding_dim": 32,
-    "evaluate_every": 100,
+    "evaluate_every": 50,
     "dropout_keep_prob": 0.75,
     "enable_max_len": 0,
-    "summary_using_keywords": 0
+    "summary_using_keywords": 0,
+    "enable_greedy": 0
 }

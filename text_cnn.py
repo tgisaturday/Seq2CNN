@@ -5,7 +5,7 @@ from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
 import ntm.ntm_cell as ntm_cell
 
 class seq2CNN(object):  
-    def __init__(self,num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size):
+    def __init__(self,num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size, greedy):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
@@ -42,7 +42,8 @@ class seq2CNN(object):
                                                 vocab_to_int, 
                                                 self.dropout_keep_prob, 
                                                 batch_size,
-                                                rnn_num_layers)
+                                                rnn_num_layers,
+                                                greedy)
             self.training_logits =tf.argmax(training_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
         self.training_logits = tf.reshape(self.training_logits, [batch_size,max_summary_length])
 
@@ -53,6 +54,7 @@ class seq2CNN(object):
             W = embeddings
             self.decoder_output = tf.nn.embedding_lookup(W, self.training_logits)
             self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1) 
+            self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
             filter_sizes=[3,4,5]
             pooled_outputs = []
             for i, filter_size in enumerate(filter_sizes):
@@ -61,7 +63,7 @@ class seq2CNN(object):
                     filter_shape = [filter_size, embedding_size, 1, num_filters]
                     W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
                     b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
-                    conv = tf.nn.conv2d(self.decoder_output_expanded, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
+                    conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
                     #Apply nonlinearity
                     h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
                     h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
@@ -184,10 +186,16 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     
     return enc_output, enc_state
 
-def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_token, end_token, dec_cell, initial_state, output_layer, vocab_size, max_summary_length, batch_size):
+def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_token, end_token, dec_cell, initial_state, output_layer, vocab_size, max_summary_length, batch_size, greedy):
     '''Create the training logits'''
-
-    training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=dec_embed_input,
+    if greedy:
+        start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
+    
+        training_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,
+                                                                start_tokens,
+                                                                end_token)
+    else:
+        training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=dec_embed_input,
                                                             sequence_length=summary_length,
                                                             time_major=False)
 
@@ -204,7 +212,7 @@ def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_t
 
 
 
-def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers):
+def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers, greedy):
     '''Create the decoding cell and attention for the training and inference decoding layers'''
 
     for layer in range(num_layers):
@@ -234,14 +242,15 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
 
     with tf.variable_scope("decode"):
         training_logits = training_decoding_layer(embeddings,dec_embed_input,
-                                                  summary_length,                                                                                     vocab_to_int['GO'], 
+                                                  summary_length,                                                                                                                                           vocab_to_int['GO'], 
                                                   vocab_to_int['EOS'],
                                                   dec_cell, 
                                                   initial_state,
                                                   output_layer,
                                                   vocab_size, 
                                                   max_summary_length,
-                                                  batch_size)  
+                                                  batch_size,
+                                                  greedy)  
 
     return training_logits
 

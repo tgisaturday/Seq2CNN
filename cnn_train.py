@@ -63,6 +63,10 @@ def train_cnn(dataset_name):
         enable_keywords = True
     else:
         enable_keywords = False
+    if params['enable_greedy'] == 1:
+        enable_greedy = True
+    else:
+        enable_greedy = False
         
     x_raw, y_raw, target_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
     word_counts = {}
@@ -203,7 +207,8 @@ def train_cnn(dataset_name):
                 vocab_to_int = vocab_to_int,
                 num_filters=params['num_filters'],
                 vocab_size=len(word_counts),
-                embedding_size=params['embedding_dim']
+                embedding_size=params['embedding_dim'],
+                greedy=enable_greedy
                 )
             
             global_step = tf.Variable(0, name="global_step", trainable=False)
@@ -268,7 +273,7 @@ def train_cnn(dataset_name):
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 train_loss, train_acc = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
-                if current_step%100==0:
+                if current_step%params['evaluate_every'] ==0:
                     logging.critical('step: {} accuracy: {} loss: {}'.format(current_step, train_acc, train_loss))
 
                 
