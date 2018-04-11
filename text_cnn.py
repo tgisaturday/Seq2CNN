@@ -16,6 +16,7 @@ class seq2CNN(object):
         self.summary_length = tf.placeholder(tf.int32, (None,), name='summary_length')
         self.is_training = tf.placeholder(tf.bool, name='is_training')
         
+        
         with tf.device('/cpu:0'),tf.name_scope('embedding'):
             embeddings = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='W')
             enc_embed_input = tf.nn.embedding_lookup(embeddings, self.input_x)
@@ -50,7 +51,7 @@ class seq2CNN(object):
 
     
         #VGGnet_Bigram
-        with tf.name_scope('VGGnet_Bigram'):
+        with tf.name_scope('textCNN'):
             W = embeddings
             self.decoder_output = tf.nn.embedding_lookup(W, self.training_logits)
             self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1) 
@@ -141,9 +142,11 @@ class seq2CNN(object):
                 
         # Calculate mean cross-entropy loss
         with tf.name_scope('loss'):
-            losses = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores) 
-            self.loss = tf.reduce_mean(losses)
-
+            cnn_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores)
+            masks = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
+            seq_loss = tf.contrib.seq2seq.sequence_loss(training_logits[0].rnn_output,self.targets,masks)
+            self.loss = tf.reduce_mean(cnn_loss)
+            self.seq_loss = seq_loss
         # Accuracy
         with tf.name_scope('accuracy'):
             correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))

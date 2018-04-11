@@ -109,7 +109,7 @@ def gen_summary(text,max_length):
 def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enable_keywords):
     """Load sentences and labels"""
     df = pd.read_csv(filename, names=['label', 'company', 'text'], dtype={'text': object})
-    selected = ['label', 'text']
+    selected = ['label', 'company','text']
     non_selected = list(set(df.columns) - set(selected))
     df = df.drop(non_selected, axis=1) # Drop non selected columns
     df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
@@ -120,12 +120,13 @@ def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enabl
     np.fill_diagonal(one_hot, 1)
     label_dict = dict(zip(labels, one_hot))
 
-    x_raw = df[selected[1]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
+    x_raw = df[selected[2]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
     y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
-    if enable_keywords:
-        target_raw = df[selected[1]].apply(lambda x: gen_keywords(x,max_summary_length)).tolist()
-    else:
-        target_raw = df[selected[1]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+    target_raw = df[selected[1]].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
+    #if enable_keywords:
+        #target_raw = df[selected[1]].apply(lambda x: gen_keywords(x,max_summary_length)).tolist()
+    #else:
+        #target_raw = df[selected[1]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
 
     return x_raw, y_raw,target_raw, df, labels
 

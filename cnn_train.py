@@ -217,9 +217,12 @@ def train_cnn(dataset_name):
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
 
-            grads_and_vars = optimizer.compute_gradients(cnn.loss)
+            cnn_trainer = optimizer.compute_gradients(cnn.loss)
+            seq_trainer = optimizer.compute_gradients(cnn.seq_loss)
+            #capped_gradients = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in grads_and_vars if grad is not None]
             with tf.control_dependencies(update_ops):
-                train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+                train_op = optimizer.apply_gradients(cnn_trainer, global_step=global_step)
+                seq_train_op = optimizer.apply_gradients(seq_trainer, global_step=global_step)
 
             timestamp = str(int(time.time()))
             out_dir = os.path.abspath(os.path.join(os.path.curdir, "trained_model_" + timestamp))
@@ -241,8 +244,20 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
-                _, logits, step, loss, acc = sess.run([train_op,cnn.training_logits, global_step, cnn.loss, cnn.accuracy], feed_dict)
-                return loss, acc
+                _, logits, step, loss,seq_loss, acc = sess.run([train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.accuracy], feed_dict)
+                return loss, seq_loss, acc
+            def seq_train_step(x_batch, y_batch,target_batch,t_batch,s_batch):
+                feed_dict = {
+                    cnn.input_x: x_batch,
+                    cnn.input_y: y_batch,
+                    cnn.targets: target_batch,
+                    cnn.text_length: t_batch,
+                    cnn.summary_length: s_batch,
+                    cnn.batch_size: len(x_batch),
+                    cnn.dropout_keep_prob: params['dropout_keep_prob'],
+                    cnn.is_training: True}
+                _, logits, step, loss,seq_loss, acc = sess.run([seq_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.accuracy], feed_dict)
+                return loss, seq_loss, acc
 
             # One evaluation step: evaluate the model with one batch
             def dev_step(x_batch, y_batch,target_batch, t_batch,s_batch):
@@ -255,7 +270,7 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: 1.0,
                     cnn.is_training: False}
-                step, loss, acc, num_correct = sess.run([global_step, cnn.loss, cnn.accuracy, cnn.num_correct],
+                step, loss, seq_loss, acc, num_correct = sess.run([global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct],
                                                         feed_dict)
                 return num_correct
 
@@ -271,10 +286,12 @@ def train_cnn(dataset_name):
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
-                train_loss, train_acc = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
+                train_loss, train_seq_loss, train_acc = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
+                if current_step%2 == 0:
+                    train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 if current_step%params['evaluate_every'] ==0:
-                    logging.critical('step: {} accuracy: {} loss: {}'.format(current_step, train_acc, train_loss))
+                    logging.critical('step: {} accuracy: {} cnn_loss: {} seq_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss))
 
                 
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""
