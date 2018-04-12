@@ -215,10 +215,11 @@ def train_cnn(dataset_name):
 
             cnn_trainer = optimizer.compute_gradients(cnn.loss)
             seq_trainer = optimizer.compute_gradients(cnn.seq_loss)
-            #capped_gradients = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in grads_and_vars if grad is not None]
+            cnn_capped = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in cnn_trainer if grad is not None]
+            seq_capped = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in seq_trainer if grad is not None]
             with tf.control_dependencies(update_ops):
-                train_op = optimizer.apply_gradients(cnn_trainer, global_step=global_step)
-                seq_train_op = optimizer.apply_gradients(seq_trainer, global_step=global_step)
+                train_op = optimizer.apply_gradients(cnn_capped, global_step=global_step)
+                seq_train_op = optimizer.apply_gradients(seq_capped, global_step=global_step)
 
             timestamp = str(int(time.time()))
             out_dir = os.path.abspath(os.path.join(os.path.curdir, "trained_model_" + timestamp))

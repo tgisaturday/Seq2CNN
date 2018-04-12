@@ -20,11 +20,8 @@ class seq2CNN(object):
         with tf.device('/cpu:0'),tf.name_scope('embedding'):
             enc_embed_input = tf.nn.embedding_lookup(embeddings, self.input_x)
             embedding_size = embedding_size
-            #self.decoder_output_expanded = tf.expand_dims(self.enc_embed_input, -1) 
         #seq2seq layers
         with tf.name_scope('seq2seq'):
-            #embeddings = word_embedding_matrix
-            #enc_embed_input = tf.nn.embedding_lookup(embeddings, self.input_x)
             batch_size = tf.reshape(self.batch_size, [])
             enc_output, enc_state = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob)
             
@@ -51,12 +48,14 @@ class seq2CNN(object):
     
         #VGGnet_Bigram
         with tf.name_scope('textCNN'):
-            W = embeddings
-            self.decoder_output = tf.nn.embedding_lookup(W, self.training_logits)
+            self.decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
             self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1) 
             self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
             filter_sizes=[3,4,5]
             pooled_outputs = []
+            shortcut = tf.nn.max_pool(h, ksize=[1, max_summary_length, 1, 1], strides=[1, 1, 1, 1],padding='VALID', name='shortcut')
+            pooled_outputs.append(shortcut)
+
             for i, filter_size in enumerate(filter_sizes):
                 with tf.name_scope('conv-maxpool-%s' % filter_size):
                     # Convolution Layer
@@ -112,14 +111,14 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     for layer in range(num_layers):
         with tf.variable_scope('encoder_{}'.format(layer)):
        
-            cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            #cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
+            #cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
             #cell_fw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
             cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
 
-            cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            #cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
             #cell_bw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
-            #cell_bw = tf.contrib.rnn.GRUCell(rnn_size)                                                       
+            cell_bw = tf.contrib.rnn.GRUCell(rnn_size)                                                       
             cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
 
             enc_output, enc_state = tf.nn.bidirectional_dynamic_rnn(cell_fw, 
@@ -163,9 +162,9 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
 
     for layer in range(num_layers):
         with tf.variable_scope('decoder_{}'.format(layer)):
-            lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            #lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
             #lstm = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
-            #lstm = tf.contrib.rnn.GRUCell(rnn_size)             
+            lstm = tf.contrib.rnn.GRUCell(rnn_size)             
             dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, 
                                                      input_keep_prob = keep_prob)
     
