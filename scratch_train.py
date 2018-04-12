@@ -6,7 +6,7 @@ import logging
 import data_helper
 import numpy as np
 import tensorflow as tf
-from text_cnn import seq2CNN
+from model_scratch import seq2CNN
 from tensorflow.contrib import learn
 from sklearn.model_selection import train_test_split
 
@@ -104,7 +104,9 @@ def train_cnn(dataset_name):
     """Step 1: pad each sentence to the same length and map each word to an id"""
     max_document_length = max([len(x.split(' ')) for x in x_raw])
     logging.info('The maximum length of all sentences: {}'.format(max_document_length))
-    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
+    #vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
+    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length,
+                                                              min_frequency=params['min_frequency'])
     vocab_processor.fit_transform(x_raw)
     vocab_to_int = vocab_processor.vocabulary_._mapping
     #print(vocab_to_int)
@@ -317,7 +319,7 @@ def train_cnn(dataset_name):
                 learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,
                                            decay_steps, 0.96, staircase=True)
                 if current_step%params['seq_decay_step'] == 0:
-                    seq_update_stride+=1
+                    seq_update_stride *= 2
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_test,t_test,s_test)), params['batch_size'], 1)
             total_test_correct = 0
