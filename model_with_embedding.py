@@ -51,11 +51,8 @@ class seq2CNN(object):
             self.decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
             self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1) 
             self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
-            filter_sizes=[3,4,5]
+            filter_sizes=[1,3,5]
             pooled_outputs = []
-            shortcut = tf.nn.max_pool(h, ksize=[1, max_summary_length, 1, 1], strides=[1, 1, 1, 1],padding='VALID', name='shortcut')
-            pooled_outputs.append(shortcut)
-
             for i, filter_size in enumerate(filter_sizes):
                 with tf.name_scope('conv-maxpool-%s' % filter_size):
                     # Convolution Layer
