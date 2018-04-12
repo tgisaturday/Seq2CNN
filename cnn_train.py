@@ -284,11 +284,12 @@ def train_cnn(dataset_name):
             best_accuracy, best_at_step = 0, 0
 
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
+            seq_update_stride = params['seq_update_stride']
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 train_loss, train_seq_loss, train_acc = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
-                if current_step%2 == 0:
+                if current_step%seq_update_stride == 0:
                     train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 if current_step%params['evaluate_every'] ==0:
                     logging.critical('step: {} accuracy: {} cnn_loss: {} seq_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss))
@@ -315,7 +316,8 @@ def train_cnn(dataset_name):
                 decay_steps = params['decay_steps']
                 learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,
                                            decay_steps, 0.96, staircase=True)
-
+                if current_step%params['seq_decay_step'] == 0:
+                    seq_update_stride+=1
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_test,t_test,s_test)), params['batch_size'], 1)
             total_test_correct = 0
