@@ -146,6 +146,8 @@ def train_cnn(dataset_name):
     # Apply convert_to_ints to clean_summaries and clean_texts
     word_count = 0
     unk_count = 0
+    logging.info("text_example: {}".format(x_raw[0]))
+    logging.info("helper_example: {}".format(target_raw[0]))
 
     int_summaries, word_count, unk_count = convert_to_ints(target_raw,vocab_to_int, word_count, unk_count)
     int_texts, word_count, unk_count = convert_to_ints(x_raw,vocab_to_int, word_count, unk_count, eos=True)

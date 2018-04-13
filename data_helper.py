@@ -12,6 +12,14 @@ from collections import Counter
 from contractions import get_contractions
 from summa.summarizer import summarize
 from summa.keywords import keywords
+
+def empty_remover(text):
+    removed = []
+    for word in text:
+        if word != '':
+            removed.append(word)
+    return removed
+
 def clean_str(text,max_length,enable_max):
     """Clean sentence"""
     text = text.lower()
@@ -34,8 +42,9 @@ def clean_str(text,max_length,enable_max):
     
     text = text.split(' ')
     stops = set(stopwords.words("english"))
-    text = [w for w in text if not w in stops]  
+    text = [w for w in text if not w in stops] 
     
+    text = empty_remover(text)
     if enable_max :
         if len(text) >= max_length:
             text = text[0:max_length]
@@ -44,35 +53,6 @@ def clean_str(text,max_length,enable_max):
             text = text[0:max_length]
         
     return ' '.join(text).strip()
-def gen_keywords(text,max_length):
-    """Clean sentence"""
-    text = text.lower()
-    text = text.split()
-    new_text = []
-    contractions = get_contractions()
-    for word in text:
-        if word in contractions:
-            new_text.append(contractions[word])
-        else:
-            new_text.append(word)
-    text = " ".join(new_text)
-    # Format words and remove unwanted characters
-    text = re.sub(r'https?:\/\/.*[\r\n]*', '', text, flags=re.MULTILINE)
-    text = re.sub(r'\<a href', ' ', text)
-    text = re.sub(r'&amp;', '', text) 
-    text = re.sub(r'[_"\-;%()|+&=*%.,!?:#$@\[\]/]', ' ', text)
-    text = re.sub(r'<br />', ' ', text)
-    text = re.sub(r'\'', ' ', text)
-    text = keywords(text,split = True)
-    text = " ".join(text)
-    text = text.split()
-    if len(text) >= max_length:
-        text = text[0:max_length]
-    elif len(text) < max_length:
-        text = text + ["PAD"] * (max_length - len(text))
-        text = text[0:max_length]
-
-    return '<GO> '+' '.join(text).strip()
 
 def gen_summary(text,max_length):
     """Clean sentence"""
@@ -84,7 +64,7 @@ def gen_summary(text,max_length):
     bow = bow + text.lower().split()
     new_text = []
     contractions = get_contractions()
-    for word in text:
+    for word in bow:
         if word in contractions:
             new_text.append(contractions[word])
         else:
@@ -101,6 +81,7 @@ def gen_summary(text,max_length):
     stops = set(stopwords.words("english"))
     text = [w for w in text if not w in stops]
     text = ['GO']+text
+    text = empty_remover(text)
     if len(text) >= max_length:
         text = text[0:max_length]
     else:
