@@ -272,9 +272,10 @@ def train_cnn(dataset_name):
                     cnn.dropout_keep_prob: 1.0,
                     cnn.is_training: False}
                 step, loss, seq_loss, acc, num_correct,examples = sess.run([global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct,cnn.training_logits],feed_dict)
-                pad = vocab_to_int['PAD']
-                result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
-                logging.info('{}'.format(result))
+                if params['watch_rnn_output'] == 1:
+                    pad = vocab_to_int['PAD']
+                    result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
+                    logging.info('{}'.format(result))
                
                 return num_correct
 
