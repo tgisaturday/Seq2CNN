@@ -76,10 +76,12 @@ def gen_keywords(text,max_length):
 
 def gen_summary(text,max_length):
     """Clean sentence"""
-    sentence = summarize(text, words=max_length)
-    text = sentence + text
-    text = text.lower()
-    text = text.split()
+    sentence = summarize(text)
+    bow = sentence
+    bow = bow.lower()
+    bow = bow.split()
+    bow = bow + keywords(text,split = True)
+    bow = bow + text.lower().split()
     new_text = []
     contractions = get_contractions()
     for word in text:
@@ -97,14 +99,14 @@ def gen_summary(text,max_length):
     text = re.sub(r'\'', ' ', text)
     text = text.split(' ')
     stops = set(stopwords.words("english"))
-    text = [w for w in text if not w in stops]  
+    text = [w for w in text if not w in stops]
+    text = ['GO']+text
     if len(text) >= max_length:
         text = text[0:max_length]
-    elif len(text) < max_length:
+    else:
         text = text + ["PAD"] * (max_length - len(text))
         text = text[0:max_length]
-
-    return '<GO> '+' '.join(text).strip()
+    return ' '.join(text)
 
 def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enable_keywords):
     """Load sentences and labels"""
@@ -122,12 +124,12 @@ def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enabl
 
     x_raw = df[selected[2]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
     y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
-    target_raw = df[selected[1]].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
 
-    #if enable_keywords:
-        #   target_raw = df[selected[2]].apply(lambda x: gen_keywords(x,max_summary_length)).tolist()
-    #else:
-        #    target_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+
+    if enable_keywords:
+        target_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+    else:
+        target_raw = df[selected[1]].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
 
     return x_raw, y_raw,target_raw, df, labels
 

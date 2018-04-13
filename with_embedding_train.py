@@ -128,7 +128,7 @@ def train_cnn(dataset_name):
     # Need to use 300 for embedding dimensions to match CN's vectors.
     embedding_dim = 300
     nb_words = len(vocab_to_int)
-
+    logging.info("Size of vocab_to_int: {}".format(len(vocab_to_int)))
     # Create matrix with default values of zero
     word_embedding_matrix = np.zeros((nb_words, embedding_dim), dtype=np.float32)
     for word, i in vocab_to_int.items():
@@ -146,6 +146,7 @@ def train_cnn(dataset_name):
     # Apply convert_to_ints to clean_summaries and clean_texts
     word_count = 0
     unk_count = 0
+
     int_summaries, word_count, unk_count = convert_to_ints(target_raw,vocab_to_int, word_count, unk_count)
     int_texts, word_count, unk_count = convert_to_ints(x_raw,vocab_to_int, word_count, unk_count, eos=True)
     unk_percent = round(unk_count/word_count,4)*100
@@ -162,7 +163,8 @@ def train_cnn(dataset_name):
     y = np.array(y_raw)
     target = np.array(target_int)
     t = np.array(list(len(x) for x in x_int))
-    s = np.array(list(params['max_summary_length'] for x in x_int))
+    max_summary_length = max([len(sentence) for sentence in target_int])
+    s = np.array(list(max_summary_length for x in x_int))
 
 
     
@@ -197,12 +199,12 @@ def train_cnn(dataset_name):
             cnn = seq2CNN(
                 embeddings=word_embedding_matrix,
                 num_classes=y_train.shape[1],
-                max_summary_length=params['max_summary_length'],
+                max_summary_length=max_summary_length,
                 rnn_size=params['rnn_size'],
                 rnn_num_layers=params['rnn_num_layers'],
                 vocab_to_int = vocab_to_int,
                 num_filters=params['num_filters'],
-                vocab_size=len(word_counts),
+                vocab_size=len(vocab_to_int),
                 embedding_size=300,
                 greedy=enable_greedy
                 )
@@ -267,8 +269,11 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: 1.0,
                     cnn.is_training: False}
-                step, loss, seq_loss, acc, num_correct = sess.run([global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct],
-                                                        feed_dict)
+                step, loss, seq_loss, acc, num_correct,examples = sess.run([global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct,cnn.training_logits],feed_dict)
+                pad = vocab_to_int['PAD']
+                result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
+                logging.info('{}'.format(result))
+               
                 return num_correct
 
             sess.run(tf.global_variables_initializer())
@@ -279,7 +284,7 @@ def train_cnn(dataset_name):
             best_accuracy, best_at_step = 0, 0
 
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
-            seq_update_stride = params['seq_update_stride']
+            seq_update_stride = 1
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 train_loss, train_seq_loss, train_acc = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
@@ -311,8 +316,8 @@ def train_cnn(dataset_name):
                 decay_steps = params['decay_steps']
                 learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,
                                            decay_steps, 0.96, staircase=True)
-                if current_step%params['seq_decay_step'] == 0:
-                    seq_update_stride *= 2
+                if current_step%params['seq_decay_step'] == 0 and seq_update_stride < params['seq_decay_max']:
+                    seq_update_stride += params['seq_update_stride']
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_test,t_test,s_test)), params['batch_size'], 1)
             total_test_correct = 0
