@@ -304,9 +304,7 @@ def downsampling(inputs, downsampling_type, name, optional_shortcut=False, short
     if optional_shortcut:
         shortcut = tf.layers.conv1d(inputs=shortcut, filters=shortcut.get_shape()[2], kernel_size=1,
                             strides=2, padding='same', use_bias=False)
-        print("-"*5)
-        print("Optional Shortcut:", shortcut.get_shape())
-        print("-"*5)
+
         pool += shortcut
     pool = fixed_padding(inputs=pool)
     return tf.layers.conv1d(inputs=pool, filters=pool.get_shape()[2]*2, kernel_size=1,
