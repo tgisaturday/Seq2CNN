@@ -60,7 +60,7 @@ def gen_summary(text,max_length):
     bow = sentence
     bow = bow.lower()
     bow = bow.split()
-    bow = bow + keywords(text,split = True)
+    #bow = bow + keywords(text,split = True)
     bow = bow + text.lower().split()
     new_text = []
     contractions = get_contractions()

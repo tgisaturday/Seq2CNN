@@ -6,7 +6,7 @@ import logging
 import data_helper
 import numpy as np
 import tensorflow as tf
-from model_deep import seq2CNN
+from model_deep_scratch import seq2CNN
 from tensorflow.contrib import learn
 from sklearn.model_selection import train_test_split
 
@@ -59,31 +59,14 @@ def train_cnn(dataset_name):
         enable_max = True
     else:
         enable_max = False
-        
     if params['summary_using_keywords'] == 1:
         enable_keywords = True
     else:
         enable_keywords = False
-        
     if params['enable_greedy'] == 1:
         enable_greedy = True
     else:
         enable_greedy = False
-        
-    if params['watch_rnn_output'] == 1:
-        watch_rnn_output = True
-    else:
-        watch_rnn_output = False
-        
-    if params['use_he_uniform'] == 1:
-        use_he_uniform = True
-    else:
-        use_he_uniform = False
-        
-    if params['optional_shortcut'] == 1:
-        optional_shortcut = True
-    else:
-        optional_shortcut = False    
         
     x_raw, y_raw, target_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
     word_counts = {}
@@ -92,39 +75,14 @@ def train_cnn(dataset_name):
             
     logging.info("Size of Vocabulary: {}".format(len(word_counts)))
 
-    # Load Conceptnet Numberbatch's (CN) embeddings, similar to GloVe, but probably better 
-    # (https://github.com/commonsense/conceptnet-numberbatch)
-    embeddings_index = {}
-    with open('./dataset/embeddings/numberbatch-en.txt', encoding='utf-8') as f:
-        for line in f:
-            values = line.split(' ')
-            word = values[0]
-            embedding = np.asarray(values[1:], dtype='float32')
-            embeddings_index[word] = embedding
-    max_document_length = max([len(x.split(' ')) for x in x_raw])
-    
-    # Find the number of words that are missing from CN, and are used more than our threshold.
-    missing_words = 0
-    threshold = params['min_frequency']
-
-    for word, count in word_counts.items():
-        if count > threshold:
-            if word not in embeddings_index:
-                missing_words += 1
-            
-    missing_ratio = round(missing_words/len(word_counts),4)*100
-            
-    logging.info("Number of words missing from CN: {}".format(missing_words))
-    logging.info("Percent of words that are missing from vocabulary: {0:.2f}%".format(missing_ratio))
-
-    #dictionary to convert words to integers
     """Step 1: pad each sentence to the same length and map each word to an id"""
-    value = 0
-    vocab_to_int={}
-    for word, count in word_counts.items():
-        if count >= threshold:
-            vocab_to_int[word] = value
-            value += 1
+    max_document_length = max([len(x.split(' ')) for x in x_raw])
+    logging.info('The maximum length of all sentences: {}'.format(max_document_length))
+    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length,
+                                                              min_frequency=params['min_frequency'])
+    vocab_processor.fit_transform(x_raw)
+    vocab_to_int = vocab_processor.vocabulary_._mapping
+    
     # Special tokens that will be added to our vocab
     codes = ["UNK","PAD","EOS","GO"]   
 
@@ -142,30 +100,10 @@ def train_cnn(dataset_name):
     logging.info("Number of words we will use: {}".format(len(vocab_to_int)))
     logging.info("Percent of words we will use: {0:.2f}%".format(usage_ratio))
     
-    # Need to use 300 for embedding dimensions to match CN's vectors.
-    embedding_dim = 300
-    nb_words = len(vocab_to_int)
-    logging.info("Size of vocab_to_int: {}".format(len(vocab_to_int)))
-    # Create matrix with default values of zero
-    word_embedding_matrix = np.zeros((nb_words, embedding_dim), dtype=np.float32)
-    for word, i in vocab_to_int.items():
-        if word in embeddings_index:
-            word_embedding_matrix[i] = embeddings_index[word]
-        else:
-            # If word not in CN, create a random embedding for it
-            new_embedding = np.array(np.random.uniform(-1.0, 1.0, embedding_dim))
-            embeddings_index[word] = new_embedding
-            word_embedding_matrix[i] = new_embedding
-
-    # Check if value matches len(vocab_to_int)
-    logging.info("Size of word embedding matrix: {}".format(len(word_embedding_matrix)))
 
     # Apply convert_to_ints to clean_summaries and clean_texts
     word_count = 0
     unk_count = 0
-    logging.info("text_example: {}".format(x_raw[0]))
-    logging.info("helper_example: {}".format(target_raw[0]))
-
     int_summaries, word_count, unk_count = convert_to_ints(target_raw,vocab_to_int, word_count, unk_count)
     int_texts, word_count, unk_count = convert_to_ints(x_raw,vocab_to_int, word_count, unk_count, eos=True)
     unk_percent = round(unk_count/word_count,4)*100
@@ -182,8 +120,7 @@ def train_cnn(dataset_name):
     y = np.array(y_raw)
     target = np.array(target_int)
     t = np.array(list(len(x) for x in x_int))
-    max_summary_length = max([len(sentence) for sentence in target_int])
-    s = np.array(list(max_summary_length for x in x_int))
+    s = np.array(list(params['max_summary_length'] for x in x_int))
 
 
     
@@ -216,38 +153,37 @@ def train_cnn(dataset_name):
         sess = tf.Session(config=session_conf)
         with sess.as_default():
             cnn = seq2CNN(
-                embeddings=word_embedding_matrix,
                 num_classes=y_train.shape[1],
-                max_summary_length=max_summary_length,
+                max_summary_length=params['max_summary_length'],
                 rnn_size=params['rnn_size'],
                 rnn_num_layers=params['rnn_num_layers'],
                 vocab_to_int = vocab_to_int,
                 num_filters=params['num_filters'],
                 vocab_size=len(vocab_to_int),
-                embedding_size=300,
+                embedding_size=params['embedding_dim'],
                 greedy=enable_greedy,
                 depth=params['VDCNN_depth'],
                 downsampling_type=params['downsampling_type'],
                 use_he_uniform=use_he_uniform,
                 optional_shortcut=optional_shortcut
                 )
-            
-            global_step = tf.Variable(0, name="global_step", trainable=False)
-
-            optimizer = tf.train.AdamOptimizer(learning_rate)
+            global_step = tf.Variable(0, name="global_step", trainable=False)            
+            num_batches_per_epoch = int((len(x_train)-1)/params['batch_size']) + 1
+            epsilon=params['epsilon']
+            learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
+            optimizer = tf.train.AdamOptimizer(learning_rate,epsilon)
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
-
-            cnn_trainer = optimizer.compute_gradients(cnn.loss)
-            seq_trainer = optimizer.compute_gradients(cnn.seq_loss)
-            cnn_capped = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in cnn_trainer if grad is not None]
-            seq_capped = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in seq_trainer if grad is not None]
+            cnn_gradients, cnn_variables = zip(*optimizer.compute_gradients(cnn.loss))
+            seq_gradients, seq_variables = zip(*optimizer.compute_gradients(cnn.seq_loss))
+            cnn_gradients, _ = tf.clip_by_global_norm(cnn_gradients, 7.0)
+            seq_gradients, _ = tf.clip_by_global_norm(seq_gradients, 7.0)
             with tf.control_dependencies(update_ops):
-                train_op = optimizer.apply_gradients(cnn_capped, global_step=global_step)
-                seq_train_op = optimizer.apply_gradients(seq_capped, global_step=global_step)
+                train_op = optimizer.apply_gradients(zip(cnn_gradients, cnn_variables), global_step=global_step)
+                seq_train_op = optimizer.apply_gradients(zip(seq_gradients, seq_variables), global_step=global_step)
 
             timestamp = str(int(time.time()))
-            out_dir = os.path.abspath(os.path.join(os.path.curdir, "trained_model_" + timestamp))
+            out_dir = os.path.abspath(os.path.join(os.path.curdir, "result_" + timestamp))
 
             checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
             checkpoint_prefix = os.path.join(checkpoint_dir, "model")
@@ -292,14 +228,12 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: 1.0,
                     cnn.is_training: False}
-                step, loss, seq_loss, acc, num_correct,examples = sess.run([global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct,cnn.training_logits],feed_dict)
-                if watch_rnn_output == True:
-                    pad = vocab_to_int['PAD']
-                    result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
-                    logging.info('{}'.format(result))
-               
+                step, loss, seq_loss, acc, num_correct = sess.run([global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct],
+                                                        feed_dict)
                 return num_correct
 
+            # Save the word_to_id map since predict.py needs it
+            vocab_processor.save(os.path.join(out_dir, "vocab.pickle"))
             sess.run(tf.global_variables_initializer())
 
             # Training starts here
@@ -308,13 +242,11 @@ def train_cnn(dataset_name):
             best_accuracy, best_at_step = 0, 0
 
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
-            seq_update_stride = 1
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 train_loss, train_seq_loss, train_acc = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
-                if current_step%seq_update_stride == 0:
-                    train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
+                train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 if current_step%params['evaluate_every'] ==0:
                     logging.critical('step: {} accuracy: {} cnn_loss: {} seq_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss))
 
@@ -337,11 +269,7 @@ def train_cnn(dataset_name):
                         path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                         logging.critical('Saved model at {} at step {}'.format(path, best_at_step))
                         logging.critical('Best accuracy is {} at step {}'.format(best_accuracy, best_at_step))
-                decay_steps = params['decay_steps']
-                learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,
-                                           decay_steps, 0.96, staircase=True)
-                if current_step%params['seq_decay_step'] == 0 and seq_update_stride < params['seq_decay_max']:
-                    seq_update_stride += params['seq_update_stride']
+
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_test,t_test,s_test)), params['batch_size'], 1)
             total_test_correct = 0
