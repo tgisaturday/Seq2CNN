@@ -2,7 +2,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.layers.core import Dense
 from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
-import ntm.ntm_cell as ntm_cell
 
 class seq2CNN(object):  
     def __init__(self,embeddings, num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size, greedy):
