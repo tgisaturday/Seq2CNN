@@ -1,7 +1,7 @@
 {
     "num_epochs": 3,
     "batch_size": 128,
-    "learning_rate": 0.001,
+    "learning_rate": 0.01,
     "epsilon": 0.001,
     "min_frequency": 5,
     "max_length": 300,

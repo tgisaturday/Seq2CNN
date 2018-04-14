@@ -66,7 +66,22 @@ def train_cnn(dataset_name):
     if params['enable_greedy'] == 1:
         enable_greedy = True
     else:
-        enable_greedy = False
+        enable_greedy = False   
+            
+    if params['watch_rnn_output'] == 1:
+        watch_rnn_output = True
+    else:
+        watch_rnn_output = False
+        
+    if params['use_he_uniform'] == 1:
+        use_he_uniform = True
+    else:
+        use_he_uniform = False
+        
+    if params['optional_shortcut'] == 1:
+        optional_shortcut = True
+    else:
+        optional_shortcut = False   
         
     x_raw, y_raw, target_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
     word_counts = {}
@@ -228,8 +243,11 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: 1.0,
                     cnn.is_training: False}
-                step, loss, seq_loss, acc, num_correct = sess.run([global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct],
-                                                        feed_dict)
+                step, loss, seq_loss, acc, num_correct,examples = sess.run([global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct,cnn.training_logits],feed_dict)
+                if watch_rnn_output == True:
+                    pad = vocab_to_int['PAD']
+                    result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
+                    logging.info('{}'.format(result))
                 return num_correct
 
             # Save the word_to_id map since predict.py needs it
