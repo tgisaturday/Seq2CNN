@@ -9,7 +9,7 @@ he_normal = tf.keras.initializers.he_normal()
 regularizer = tf.contrib.layers.l2_regularizer(1e-4)
 
 class seq2CNN(object):  
-    def __init__(self,embeddings, num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size, greedy,
+    def __init__(self, num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size, greedy,
                   depth=9, downsampling_type='maxpool', use_he_uniform=True, optional_shortcut=False):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
