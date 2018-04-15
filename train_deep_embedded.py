@@ -65,10 +65,10 @@ def train_cnn(dataset_name):
     else:
         enable_keywords = False
         
-    if params['enable_greedy'] == 1:
-        enable_greedy = True
+    if params['layer_norm'] == 1:
+        layer_norm = True
     else:
-        enable_greedy = False
+        layer_norm = False
         
     if params['watch_rnn_output'] == 1:
         watch_rnn_output = True
@@ -225,7 +225,7 @@ def train_cnn(dataset_name):
                 num_filters=params['num_filters'],
                 vocab_size=len(vocab_to_int),
                 embedding_size=300,
-                greedy=enable_greedy,
+                layer_norm=layer_norm,
                 depth=params['VDCNN_depth'],
                 downsampling_type=params['downsampling_type'],
                 use_he_uniform=use_he_uniform,

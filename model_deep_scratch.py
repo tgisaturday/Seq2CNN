@@ -6,10 +6,10 @@ from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
 
 # weights initializers
 he_normal = tf.keras.initializers.he_normal()
-regularizer = tf.contrib.layers.l2_regularizer(1e-4)
+regularizer = tf.contrib.layers.l2_regularizer(1e-3)
 
 class seq2CNN(object):  
-    def __init__(self, num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size, greedy,
+    def __init__(self, num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size, layer_norm,
                   depth=9, downsampling_type='maxpool', use_he_uniform=True, optional_shortcut=False):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
@@ -41,7 +41,7 @@ class seq2CNN(object):
         #seq2seq layers
         with tf.name_scope('seq2seq'):
             batch_size = tf.reshape(self.batch_size, [])
-            enc_output, enc_state = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob)
+            enc_output, enc_state = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob,layer_norm)
             
             dec_input = process_encoding_input(self.targets, vocab_to_int, batch_size)
             dec_embed_input = tf.nn.embedding_lookup(embeddings, dec_input)
@@ -58,7 +58,7 @@ class seq2CNN(object):
                                                 self.dropout_keep_prob, 
                                                 batch_size,
                                                 rnn_num_layers,
-                                                greedy)
+                                               layer_norm)
             self.training_logits =tf.argmax(training_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
         self.training_logits = tf.reshape(self.training_logits, [batch_size,max_summary_length])
 
@@ -178,21 +178,20 @@ def process_encoding_input(target_data, vocab_to_int, batch_size):
 
     return dec_input 
 
-def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob):
+def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob,layer_norm):
     '''Create the encoding layer'''
     
     for layer in range(num_layers):
         with tf.variable_scope('encoder_{}'.format(layer)):
        
-            #cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            #cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
-            cell_fw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
-            #cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
+            if layer_norm:
+                cell_fw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
+                cell_bw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
+            else:
+                cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+                cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
 
-            #cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            cell_bw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
-            #cell_bw = tf.contrib.rnn.GRUCell(rnn_size)                                                       
-            #cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
+                cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))                                                 cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
 
             enc_output, enc_state = tf.nn.bidirectional_dynamic_rnn(cell_fw, 
                                                                     cell_bw, 
@@ -204,15 +203,8 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     
     return enc_output, enc_state
 
-def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_token, end_token, dec_cell, initial_state, output_layer, vocab_size, max_summary_length, batch_size, greedy):
+def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_token, end_token, dec_cell, initial_state, output_layer, vocab_size, max_summary_length, batch_size):
     '''Create the training logits'''
-    if greedy:
-        start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
-    
-        training_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,
-                                                                start_tokens,
-                                                                end_token)
-    else:
         training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=dec_embed_input,
                                                             sequence_length=summary_length,
                                                             time_major=False)
@@ -230,15 +222,16 @@ def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_t
 
 
 
-def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers, greedy):
+def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers,layer_norm):
     '''Create the decoding cell and attention for the training and inference decoding layers'''
 
     for layer in range(num_layers):
         with tf.variable_scope('decoder_{}'.format(layer)):
-            #lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            dec_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
-            #lstm = tf.contrib.rnn.GRUCell(rnn_size)             
-            #dec_cell = tf.contrib.rnn.DropoutWrapper(lstm,input_keep_prob = keep_prob)
+            if layer_norm:
+                dec_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
+            else:
+                lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2)) 
+                dec_cell = tf.contrib.rnn.DropoutWrapper(lstm,input_keep_prob = keep_prob)
     
     output_layer = Dense(vocab_size,
                          kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))
@@ -266,8 +259,7 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
                                                   output_layer,
                                                   vocab_size, 
                                                   max_summary_length,
-                                                  batch_size,
-                                                  greedy)  
+                                                  batch_size)  
 
     return training_logits
 
