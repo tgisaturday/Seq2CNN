@@ -1,0 +1,23 @@
+{
+    "num_epochs": 10,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "epsilon": 0.01,
+    "min_frequency": 10,
+    "max_length": 300,
+    "max_summary_length": 50,
+    "rnn_size": 128,
+    "rnn_num_layers": 2,
+    "num_filters": 32,
+    "embedding_dim": 32,
+    "evaluate_every": 25,
+    "dropout_keep_prob": 0.7,
+    "enable_max_len": 0,
+    "summary_using_keywords": 1,
+    "layer_norm": 1,
+    "watch_rnn_output": 0,
+    "VDCNN_depth": 9,
+    "downsampling_type": "maxpool",
+    "use_he_uniform": 1,
+    "optional_shortcut": 0
+}
