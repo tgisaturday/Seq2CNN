@@ -3,7 +3,7 @@ import sys
 import json
 import time
 import logging
-import data_helper
+import kor_data_helper as data_helper
 import numpy as np
 import tensorflow as tf
 from model_scratch import seq2CNN
@@ -49,9 +49,9 @@ def convert_to_ints(text,vocab_to_int, word_count, unk_count, eos=False):
         ints.append(sentence_ints)
     return ints, word_count, unk_count
 
-def train_cnn(dataset_name):
+def train_cnn():
     """Step 0: load sentences, labels, and training parameters"""
-    dataset = '../dataset/'+dataset_name+'_csv/train.csv'
+    dataset = '../dataset/abstract'
     parameter_file = "./parameters.json"
     params = json.loads(open(parameter_file).read())
     learning_rate = params['learning_rate']
@@ -288,4 +288,4 @@ def train_cnn(dataset_name):
 
 if __name__ == '__main__':
     # python3 train.py ./data/consumer_complaints.csv.zip ./parameters.json
-    train_cnn(sys.argv[1])
+    train_cnn()

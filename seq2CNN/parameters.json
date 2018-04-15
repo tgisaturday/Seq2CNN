@@ -15,9 +15,5 @@
     "enable_max_len": 0,
     "summary_using_keywords": 1,
     "layer_norm": 1,
-    "watch_rnn_output": 0,
-    "VDCNN_depth": 9,
-    "downsampling_type": "maxpool",
-    "use_he_uniform": 1,
-    "optional_shortcut": 0
+    "watch_rnn_output": 1
 }
