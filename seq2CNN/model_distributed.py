@@ -60,7 +60,7 @@ class seq2CNN(object):
             with tf.name_scope('conv-maxpool-%s' % filter_size):
                 # Convolution Layer
                 filter_shape = [filter_size, embedding_size, 1, num_filters]
-                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W',regularizer = regularizer)
                 b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
                 conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
                 #Apply nonlinearity
@@ -105,7 +105,7 @@ class seq2CNN(object):
             with tf.name_scope('conv-maxpool-%s' % filter_size):
                 # Convolution Layer
                 filter_shape = [filter_size, embedding_size, 1, num_filters]
-                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W',regularizer = regularizer)
                 b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
                 conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
                 #Apply nonlinearity
@@ -122,7 +122,7 @@ class seq2CNN(object):
             self.h_pool = tf.concat(pooled_outputs, 3)
             self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
             W = tf.get_variable('W', shape=[num_filters*6, num_classes],
-                                    initializer=tf.contrib.layers.xavier_initializer())
+                                    initializer=tf.contrib.layers.xavier_initializer(),regularizer = regularizer)
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name='b')
             self.scores = tf.nn.xw_plus_b(self.h_pool_flat, W, b, name='scores')
             self.predictions = tf.argmax(self.scores, 1, name='predictions')
