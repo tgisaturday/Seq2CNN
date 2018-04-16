@@ -20,15 +20,6 @@ def empty_remover(text):
             removed.append(word)
     return removed
 
-def split_data(raw):
-    top = []
-    bottom = []
-    for x in raw:
-        margin = len(x)//2
-        top.append(x[:margin])
-        bottom.append(x[margin:])
-    return top, bottom
-
 def clean_str(text,max_length,enable_max):
     """Clean sentence"""
     text = text.lower()
@@ -119,14 +110,13 @@ def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enabl
     label_dict = dict(zip(labels, one_hot))
 
     x_raw = df[selected[2]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
-    x_top_raw, x_bottom_raw = split_data(x_raw)
     y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
 
     target_top_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length,True)).tolist()
     target_bottom_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length,False)).tolist()
 
         
-    return x_raw,x_top_raw, x_bottom_raw, y_raw,target_top_raw, target_bottom_raw, df, labels
+    return x_raw, y_raw,target_top_raw, target_bottom_raw, df, labels
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """Iterate the data batch by batch"""

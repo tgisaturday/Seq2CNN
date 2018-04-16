@@ -73,8 +73,8 @@ def train_cnn(dataset_name):
     else:
         watch_rnn_output = False
         
-    x_raw, x_top_raw, x_bottom_raw, y_raw, target_top_raw, target_bottom_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
-    x_test_raw,x_top_test_raw, x_bottom_test_raw, y_test_raw, target_top_test_raw,target_bottom_test_raw, df_raw,labels_raw=data_helper.load_data_and_labels(testset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
+    x_raw, y_raw, target_top_raw, target_bottom_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
+    x_test_raw, y_test_raw, target_top_test_raw,target_bottom_test_raw, df_raw,labels_raw=data_helper.load_data_and_labels(testset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
     word_counts = {}
     
     count_words(word_counts, x_raw)
@@ -114,10 +114,9 @@ def train_cnn(dataset_name):
     int_bottom_summaries, word_count, unk_count = convert_to_ints(target_bottom_raw,vocab_to_int, word_count, unk_count)
     int_top_test_summaries, word_count, unk_count = convert_to_ints(target_top_test_raw,vocab_to_int, word_count, unk_count)
     int_bottom_test_summaries, word_count, unk_count = convert_to_ints(target_bottom_test_raw,vocab_to_int, word_count, unk_count)
-    int_top_texts, word_count, unk_count = convert_to_ints(x_top_raw,vocab_to_int, word_count, unk_count, eos=True)
-    int_bottom_texts, word_count, unk_count = convert_to_ints(x_bottom_raw,vocab_to_int, word_count, unk_count, eos=True)
-    int_top_test_texts, word_count, unk_count = convert_to_ints(x_top_test_raw,vocab_to_int, word_count, unk_count, eos=True)
-    int_bottom_test_texts, word_count, unk_count = convert_to_ints(x_bottom_test_raw,vocab_to_int, word_count, unk_count, eos=True)
+    
+    int_texts, word_count, unk_count = convert_to_ints(x_raw,vocab_to_int, word_count, unk_count, eos=True)
+    int_test_texts, word_count, unk_count = convert_to_ints(x_test_raw,vocab_to_int, word_count, unk_count, eos=True)
     unk_percent = round(unk_count/word_count,4)*100
 
     logging.info("Total number of words in texts: {}".format(word_count))
@@ -126,52 +125,45 @@ def train_cnn(dataset_name):
     
     """Step 1: pad each sentence to the same length and map each word to an id"""
 
-    x_top_int = pad_sentence_batch(vocab_to_int,int_top_texts)
-    x_bottom_int = pad_sentence_batch(vocab_to_int,int_bottom_texts)
-    x_top_test_int = pad_sentence_batch(vocab_to_int,int_top_test_texts)
-    x_bottom_test_int = pad_sentence_batch(vocab_to_int,int_bottom_test_texts)
+    x_int = pad_sentence_batch(vocab_to_int,int_texts)
+    x_test_int = pad_sentence_batch(vocab_to_int,int_test_texts)
     target_top_int = pad_sentence_batch(vocab_to_int,int_top_summaries)
     target_bottom_int = pad_sentence_batch(vocab_to_int,int_bottom_summaries)
     target_top_test_int = pad_sentence_batch(vocab_to_int,int_top_test_summaries)
     target_bottom_test_int = pad_sentence_batch(vocab_to_int,int_bottom_test_summaries)
     
-    x_top = np.array(x_top_int)
-    x_bottom = np.array(x_bottom_int)
-    x_top_test= np.array(x_top_test_int)
-    x_bottom_test= np.array(x_bottom_test_int)
+    x = np.array(x_int)
+    x_test= np.array(x_test_int)
     y = np.array(y_raw)
     y_test = np.array(y_test_raw)
     target_top = np.array(target_top_int)
     target_bottom = np.array(target_bottom_int)
     target_top_test = np.array(target_top_test_int)
     target_bottom_test = np.array(target_bottom_test_int)
-    t_top = np.array(list(len(x) for x in x_top_int))
-    t_bottom = np.array(list(len(x) for x in x_bottom_int))
-    t_top_test = np.array(list(len(x) for x in x_top_test_int))
-    t_bottom_test = np.array(list(len(x) for x in x_bottom_test_int))   
-    s = np.array(list(params['max_summary_length'] for x in x_top_int))
-    s_test = np.array(list(params['max_summary_length'] for x in x_top_test_int))
+    t = np.array(list(len(x) for x in x_int))
+    t_test = np.array(list(len(x) for x in x_test_int))
+    s = np.array(list(params['max_summary_length'] for x in x_int))
+    s_test = np.array(list(params['max_summary_length'] for x in x_test_int))
 
     """Step 2: shuffle the train set and split the train set into train and dev sets"""
     shuffle_indices = np.random.permutation(np.arange(len(y)))
-    x_top_shuffled = x_top[shuffle_indices]
-    x_bottom_shuffled = x_bottom[shuffle_indices]
+    x_shuffled = x[shuffle_indices]
     y_shuffled = y[shuffle_indices]
     target_top_shuffled = target_top[shuffle_indices]
     target_bottom_shuffled = target_bottom[shuffle_indices]
-    t_top_shuffled = t_top[shuffle_indices]
-    t_bottom_shuffled = t_bottom[shuffle_indices]
+    t_shuffled = t[shuffle_indices]
+
     s_shuffled = s[shuffle_indices]
-    x_top_train, x_top_dev,x_bottom_train,x_bottom_dev, y_train, y_dev,target_top_train, target_top_dev,target_bottom_train,target_bottom_dev, t_top_train, t_top_dev, t_bottom_train, t_bottom_dev, s_train, s_dev = train_test_split(x_top_shuffled,x_bottom_shuffled, y_shuffled,target_top_shuffled,target_bottom_shuffled, t_top_shuffled, t_bottom_shuffled,s_shuffled, test_size=0.1)
+    x_train, x_dev, y_train, y_dev,target_top_train, target_top_dev,target_bottom_train,target_bottom_dev, t_train, t_dev, s_train, s_dev = train_test_split(x_shuffled, y_shuffled,target_top_shuffled,target_bottom_shuffled, t_shuffled,s_shuffled, test_size=0.1)
 
     """Step 3: save the labels into labels.json since predict.py needs it"""
     with open('./labels.json', 'w') as outfile:
         json.dump(labels, outfile, indent=4)
 
-    logging.info('x_train: {}, x_dev: {}, x_test: {}'.format(len(x_top_train), len(x_top_dev), len(x_top_test)))
+    logging.info('x_train: {}, x_dev: {}, x_test: {}'.format(len(x_train), len(x_dev), len(x_test)))
     logging.info('y_train: {}, y_dev: {}, y_test: {}'.format(len(y_train), len(y_dev), len(y_test)))
     logging.info('target_train: {}, target_dev: {}, target_test: {}'.format(len(target_top_train), len(target_top_dev), len(target_top_test)))
-    logging.info('t_train: {}, t_dev: {}, t_test: {}'.format(len(t_top_train), len(t_top_dev), len(t_top_test)))
+    logging.info('t_train: {}, t_dev: {}, t_test: {}'.format(len(t_train), len(t_dev), len(t_test)))
     logging.info('s_train: {}, s_dev: {}, s_test: {}'.format(len(s_train), len(s_dev), len(s_test)))
 
     """Step 4: build a graph and cnn object"""
@@ -220,45 +212,39 @@ def train_cnn(dataset_name):
             saver = tf.train.Saver(tf.global_variables())
 
             # One training step: train the model with one batch
-            def train_step(x_top_batch,x_bottom_batch, y_batch,target_top_batch,target_bottom_batch,t_top_batch,t_bottom_batch,s_batch):
+            def train_step(x_batch, y_batch,target_top_batch,target_bottom_batch,t_batch,s_batch):
                 feed_dict = {
-                    cnn.input_top_x: x_top_batch,
-                    cnn.input_bottom_x: x_bottom_batch,
+                    cnn.input_x: x_batch,
                     cnn.input_y: y_batch,
                     cnn.targets_top: target_top_batch,
                     cnn.targets_bottom: target_bottom_batch,
-                    cnn.text_top_length: t_top_batch,
-                    cnn.text_bottom_length: t_bottom_batch,
+                    cnn.text_length: t_batch,
                     cnn.summary_length: s_batch,
                     cnn.batch_size: len(x_top_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
                 _, logits, step, loss,seq_loss, acc = sess.run([train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.accuracy], feed_dict)
                 return loss, seq_loss, acc
-            def seq_top_train_step(x_top_batch,x_bottom_batch, y_batch,target_top_batch,target_bottom_batch,t_top_batch,t_bottom_batch,s_batch):
+            def seq_top_train_step(x_batch, y_batch,target_top_batch,target_bottom_batch,t_batch,s_batch):
                 feed_dict = {
-                    cnn.input_top_x: x_top_batch,
-                    cnn.input_bottom_x: x_bottom_batch,
+                    cnn.input_x: x_batch,
                     cnn.input_y: y_batch,
                     cnn.targets_top: target_top_batch,
                     cnn.targets_bottom: target_bottom_batch,
-                    cnn.text_top_length: t_top_batch,
-                    cnn.text_bottom_length: t_bottom_batch,
+                    cnn.text_length: t_batch,
                     cnn.summary_length: s_batch,
                     cnn.batch_size: len(x_top_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
                 _, logits, step, loss,seq_loss, acc = sess.run([seq_top_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.accuracy], feed_dict)
                 return loss, seq_loss, acc
-            def seq_bottom_train_step(x_top_batch,x_bottom_batch, y_batch,target_top_batch,target_bottom_batch,t_top_batch,t_bottom_batch,s_batch):
+            def seq_bottom_train_step(x_batch, y_batch,target_top_batch,target_bottom_batch,t_batch,s_batch):
                 feed_dict = {
-                    cnn.input_top_x: x_top_batch,
-                    cnn.input_bottom_x: x_bottom_batch,
+                    cnn.input_x: x_batch,
                     cnn.input_y: y_batch,
                     cnn.targets_top: target_top_batch,
                     cnn.targets_bottom: target_bottom_batch,
-                    cnn.text_top_length: t_top_batch,
-                    cnn.text_bottom_length: t_bottom_batch,
+                    cnn.text_length: t_batch,
                     cnn.summary_length: s_batch,
                     cnn.batch_size: len(x_top_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
@@ -267,16 +253,15 @@ def train_cnn(dataset_name):
                 return loss, seq_loss, acc
 
             # One evaluation step: evaluate the model with one batch
-            def dev_step(x_top_batch,x_bottom_batch, y_batch,target_top_batch,target_bottom_batch,t_top_batch,t_bottom_batch,s_batch):
+            def dev_step(x_batch, y_batch,target_top_batch,target_bottom_batch,t_batch,s_batch):
                 feed_dict = {
-                    cnn.input_top_x: x_top_batch,
-                    cnn.input_bottom_x: x_bottom_batch,
+                    cnn.input_x: x_batch,
                     cnn.input_y: y_batch,
                     cnn.targets_top: target_top_batch,
                     cnn.targets_bottom: target_bottom_batch,
-                    cnn.text_top_length: t_top_batch,
-                    cnn.text_bottom_length: t_bottom_batch,
+                    cnn.text_length: t_batch,
                     cnn.summary_length: s_batch,
+                    cnn.batch_size: len(x_top_batch),
                     cnn.batch_size: len(x_top_batch),
                     cnn.dropout_keep_prob: 1.0,
                     cnn.is_training: False}
@@ -298,10 +283,10 @@ def train_cnn(dataset_name):
 
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
             for train_batch in train_batches:
-                x_top_train_batch,x_bottom_train_batch, y_train_batch,target_top_train_batch,target_bottom_train_batch, t_top_train_batch, t_bottom_train_batch, s_train_batch = zip(*train_batch)
-                train_loss, train_seq_loss, train_acc = seq_top_train_step(x_top_train_batch,x_bottom_train_batch, y_train_batch,target_top_train_batch,target_bottom_train_batch, t_top_train_batch, t_bottom_train_batch, s_train_batch)
-                train_loss, train_seq_loss, train_acc = seq_bottom_train_step(x_top_train_batch,x_bottom_train_batch, y_train_batch,target_top_train_batch,target_bottom_train_batch, t_top_train_batch, t_bottom_train_batch, s_train_batch)
-                train_loss, train_seq_loss, train_acc = train_step(x_top_train_batch,x_bottom_train_batch, y_train_batch,target_top_train_batch,target_bottom_train_batch, t_top_train_batch, t_bottom_train_batch, s_train_batch)
+                x_train_batch, y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch = zip(*train_batch)
+                train_loss, train_seq_loss, train_acc = seq_top_train_step(x_train_batch,y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch)
+                train_loss, train_seq_loss, train_acc = seq_bottom_train_step(x_train_batch,y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch)
+                train_loss, train_seq_loss, train_acc = train_step(x_train_batch,y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
 
                 if current_step%params['evaluate_every'] ==0:
@@ -310,11 +295,11 @@ def train_cnn(dataset_name):
                 
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""
                 if current_step % params['evaluate_every'] == 0:
-                    dev_batches = data_helper.batch_iter(list(zip(x_top_dev, x_bottom_dev, y_dev,target_top_dev, target_bottom_dev,t_top_dev,t_bottom_dev,s_dev)), params['batch_size'], 1)
+                    dev_batches = data_helper.batch_iter(list(zip(x_dev, y_dev,target_top_dev, target_bottom_dev,t_dev,s_dev)), params['batch_size'], 1)
                     total_dev_correct = 0
                     for dev_batch in dev_batches:
-                        x_top_dev_batch,x_bottom_dev_batch, y_dev_batch,target_top_dev_batch,target_bottom_dev_batch, t_top_dev_batch,t_bottom_dev_batch,s_dev_batch = zip(*dev_batch)
-                        num_dev_correct = dev_step(x_top_dev_batch,x_bottom_dev_batch, y_dev_batch,target_top_dev_batch,target_bottom_dev_batch, t_top_dev_batch,t_bottom_dev_batch,s_dev_batch)
+                        x_dev_batch,y_dev_batch,target_top_dev_batch,target_bottom_dev_batch, t_dev_batch,s_dev_batch = zip(*dev_batch)
+                        num_dev_correct = dev_step(x_dev_batch,y_dev_batch,target_top_dev_batch,target_bottom_dev_batch, t_dev_batch,s_dev_batch)
                         total_dev_correct += num_dev_correct
 
                     dev_accuracy = float(total_dev_correct) / len(y_dev)
@@ -328,11 +313,11 @@ def train_cnn(dataset_name):
                         logging.critical('Best accuracy is {} at step {}'.format(best_accuracy, best_at_step))
 
             """Step 7: predict x_test (batch by batch)"""
-            test_batches = data_helper.batch_iter(list(zip(x_top_test, x_bottom_test, y_test,target_top_test, target_bottom_test,t_top_test,t_bottom_test,s_test)), params['batch_size'], 1)
+            test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_top_test, target_bottom_test,t_test,s_test)), params['batch_size'], 1)
             total_test_correct = 0
             for test_batch in test_batches:
-                x_top_test_batch,x_bottom_test_batch, y_test_batch,target_top_test_batch,target_bottom_test_batch, t_top_test_batch,t_bottom_test_batch,s_test_batch = zip(*test_batch)
-                num_test_correct = dev_step(x_top_test_batch,x_bottom_test_batch, y_test_batch,target_top_test_batch,target_bottom_test_batch, t_top_test_batch,t_bottom_test_batch,s_test_batch)
+                x_test_batch,y_test_batch,target_top_test_batch,target_bottom_test_batch, t_test_batch,s_test_batch = zip(*test_batch)
+                num_test_correct = dev_step(x_test_batch,y_test_batch,target_top_test_batch,target_bottom_test_batch, t_test_batch,s_test_batch)
                 total_test_correct += num_test_correct
             path = saver.save(sess, checkpoint_prefix)
             test_accuracy = float(total_test_correct) / len(y_test)

@@ -7,28 +7,25 @@ regularizer = tf.contrib.layers.l2_regularizer(1e-3)
 
 class seq2CNN(object):  
     def __init__(self,num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size,layer_norm=True):
-        self.input_top_x = tf.placeholder(tf.int32, [None, None], name='input_top_x')
-        self.input_bottom_x = tf.placeholder(tf.int32, [None, None], name='input_bottom_x')
+        self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
         self.dropout_keep_prob = tf.placeholder(tf.float32, name='dropout_keep_prob')
         self.batch_size = tf.placeholder(tf.int32, name='batch_size')
         self.targets_top = tf.placeholder(tf.int32, [None, None], name='targets_top')
         self.targets_bottom = tf.placeholder(tf.int32, [None, None], name='targets_bottom')
-        self.text_top_length = tf.placeholder(tf.int32, (None,), name='text_top_length')
-        self.text_bottom_length = tf.placeholder(tf.int32, (None,), name='text_bottom_length')
+        self.text_length = tf.placeholder(tf.int32, (None,), name='text_top_length')
         self.summary_length = tf.placeholder(tf.int32, (None,), name='summary_length')
         self.is_training = tf.placeholder(tf.bool, name='is_training')
         
         pooled_outputs = []
         with tf.device('/cpu:0'),tf.name_scope('embedding'):
             embeddings = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='W')
-            enc_embed_input_top = tf.nn.embedding_lookup(embeddings, self.input_top_x)
-            enc_embed_input_bottom = tf.nn.embedding_lookup(embeddings, self.input_bottom_x)
+            enc_embed_input = tf.nn.embedding_lookup(embeddings, self.input_x)
             embedding_size = embedding_size
 
         #seq2seq layers
         batch_size = tf.reshape(self.batch_size, [])
-        enc_output, enc_state = encoding_layer(rnn_size, self.text_top_length, rnn_num_layers, enc_embed_input_top, self.dropout_keep_prob,0,layer_norm)
+        enc_output, enc_state = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob,0,layer_norm)
             
         dec_input = process_encoding_input(self.targets_top, vocab_to_int, batch_size)
         dec_embed_input = tf.nn.embedding_lookup(embeddings, dec_input)
@@ -37,7 +34,7 @@ class seq2CNN(object):
                                                 enc_output,
                                                 enc_state, 
                                                 vocab_size, 
-                                                self.text_top_length,
+                                                self.text_length,
                                                 self.summary_length,
                                                 max_summary_length,
                                                 rnn_size, 
@@ -60,7 +57,7 @@ class seq2CNN(object):
             with tf.name_scope('conv-maxpool-%s' % filter_size):
                 # Convolution Layer
                 filter_shape = [filter_size, embedding_size, 1, num_filters]
-                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W',regularizer = regularizer)
+                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
                 b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
                 conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
                 #Apply nonlinearity
@@ -73,7 +70,7 @@ class seq2CNN(object):
 
             
         batch_size1 = tf.reshape(self.batch_size, [])
-        enc_output1, enc_state1 = encoding_layer(rnn_size, self.text_bottom_length, rnn_num_layers, enc_embed_input_bottom, self.dropout_keep_prob,1,layer_norm)
+        enc_output1, enc_state1 = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob,1,layer_norm)
             
         dec_input1 = process_encoding_input(self.targets_bottom, vocab_to_int, batch_size1)
         dec_embed_input1 = tf.nn.embedding_lookup(embeddings, dec_input1)
@@ -82,7 +79,7 @@ class seq2CNN(object):
                                                 enc_output1,
                                                 enc_state1, 
                                                 vocab_size, 
-                                                self.text_bottom_length,
+                                                self.text_length,
                                                 self.summary_length,
                                                 max_summary_length,
                                                 rnn_size, 
@@ -105,7 +102,7 @@ class seq2CNN(object):
             with tf.name_scope('conv-maxpool-%s' % filter_size):
                 # Convolution Layer
                 filter_shape = [filter_size, embedding_size, 1, num_filters]
-                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W',regularizer = regularizer)
+                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
                 b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
                 conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
                 #Apply nonlinearity
