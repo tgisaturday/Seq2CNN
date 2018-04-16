@@ -258,9 +258,9 @@ def train_cnn(dataset_name):
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
+                train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 train_loss, train_seq_loss, train_acc = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
-                train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 if current_step%params['evaluate_every'] ==0:
                     logging.critical('step: {} accuracy: {} cnn_loss: {} seq_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss))
 

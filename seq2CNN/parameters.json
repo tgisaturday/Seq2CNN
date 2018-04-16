@@ -5,7 +5,7 @@
     "epsilon": 0.01,
     "min_frequency": 3,
     "max_length": 300,
-    "max_summary_length": 50,
+    "max_summary_length": 100,
     "rnn_size": 128,
     "rnn_num_layers": 2,
     "num_filters": 32,
