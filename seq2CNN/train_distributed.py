@@ -52,6 +52,7 @@ def convert_to_ints(text,vocab_to_int, word_count, unk_count, eos=False):
 def train_cnn(dataset_name):
     """Step 0: load sentences, labels, and training parameters"""
     dataset = '../dataset/'+dataset_name+'_csv/train.csv'
+    testset = '../dataset/'+dataset_name+'_csv/test.csv'
     parameter_file = "./parameters.json"
     params = json.loads(open(parameter_file).read())
     learning_rate = params['learning_rate']
@@ -73,6 +74,7 @@ def train_cnn(dataset_name):
         watch_rnn_output = False
         
     x_raw, x_top_raw, x_bottom_raw, y_raw, target_top_raw, target_bottom_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
+    x_test_raw,x_top_test_raw, x_bottom_test_raw, y_test_raw, target_top_test_raw,target_bottom_test_raw, df_raw,labels_raw=data_helper.load_data_and_labels(testset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
     word_counts = {}
     
     count_words(word_counts, x_raw)
@@ -110,8 +112,12 @@ def train_cnn(dataset_name):
     unk_count = 0
     int_top_summaries, word_count, unk_count = convert_to_ints(target_top_raw,vocab_to_int, word_count, unk_count)
     int_bottom_summaries, word_count, unk_count = convert_to_ints(target_bottom_raw,vocab_to_int, word_count, unk_count)
+    int_top_test_summaries, word_count, unk_count = convert_to_ints(target_top_test_raw,vocab_to_int, word_count, unk_count)
+    int_bottom_test_summaries, word_count, unk_count = convert_to_ints(target_bottom_test_raw,vocab_to_int, word_count, unk_count)
     int_top_texts, word_count, unk_count = convert_to_ints(x_top_raw,vocab_to_int, word_count, unk_count, eos=True)
-    int_bottom_texts, word_count, unk_count = convert_to_ints(x_bottom_raw,vocab_to_int, word_count, unk_count, eos=True)    
+    int_bottom_texts, word_count, unk_count = convert_to_ints(x_bottom_raw,vocab_to_int, word_count, unk_count, eos=True)
+    int_top_test_texts, word_count, unk_count = convert_to_ints(x_top_test_raw,vocab_to_int, word_count, unk_count, eos=True)
+    int_bottom_test_texts, word_count, unk_count = convert_to_ints(x_bottom_test_raw,vocab_to_int, word_count, unk_count, eos=True)
     unk_percent = round(unk_count/word_count,4)*100
 
     logging.info("Total number of words in texts: {}".format(word_count))
@@ -122,35 +128,43 @@ def train_cnn(dataset_name):
 
     x_top_int = pad_sentence_batch(vocab_to_int,int_top_texts)
     x_bottom_int = pad_sentence_batch(vocab_to_int,int_bottom_texts)
+    x_top_test_int = pad_sentence_batch(vocab_to_int,int_top_test_texts)
+    x_bottom_test_int = pad_sentence_batch(vocab_to_int,int_bottom_test_texts)
     target_top_int = pad_sentence_batch(vocab_to_int,int_top_summaries)
     target_bottom_int = pad_sentence_batch(vocab_to_int,int_bottom_summaries)
+    target_top_test_int = pad_sentence_batch(vocab_to_int,int_top_test_summaries)
+    target_bottom_test_int = pad_sentence_batch(vocab_to_int,int_bottom_test_summaries)
+    
     x_top = np.array(x_top_int)
     x_bottom = np.array(x_bottom_int)
+    x_top_test= np.array(x_top_test_int)
+    x_bottom_test= np.array(x_bottom_test_int)
     y = np.array(y_raw)
+    y_test = np.array(y_test_raw)
     target_top = np.array(target_top_int)
     target_bottom = np.array(target_bottom_int)
+    target_top_test = np.array(target_top_test_int)
+    target_bottom_test = np.array(target_bottom_test_int)
     t_top = np.array(list(len(x) for x in x_top_int))
     t_bottom = np.array(list(len(x) for x in x_bottom_int))
+    t_top_test = np.array(list(len(x) for x in x_top_test_int))
+    t_bottom_test = np.array(list(len(x) for x in x_bottom_test_int))   
     s = np.array(list(params['max_summary_length'] for x in x_top_int))
+    s_test = np.array(list(params['max_summary_length'] for x in x_top_test_int))
 
-
-    
-    """Step 2: split the original dataset into train and test sets"""
-    x_top_, x_top_test,x_bottom_,x_bottom_test, y_, y_test,target_top_,target_top_test,target_bottom_,  target_bottom_test, t_top_,t_top_test,t_bottom_, t_bottom_test,s_,s_test = train_test_split(x_top,x_bottom, y,target_top,target_bottom, t_top, t_bottom, s, test_size=0.1, random_state=42)
-
-    """Step 3: shuffle the train set and split the train set into train and dev sets"""
-    shuffle_indices = np.random.permutation(np.arange(len(y_)))
-    x_top_shuffled = x_top_[shuffle_indices]
-    x_bottom_shuffled = x_bottom_[shuffle_indices]
-    y_shuffled = y_[shuffle_indices]
-    target_top_shuffled = target_top_[shuffle_indices]
-    target_bottom_shuffled = target_bottom_[shuffle_indices]
-    t_top_shuffled = t_top_[shuffle_indices]
-    t_bottom_shuffled = t_bottom_[shuffle_indices]
-    s_shuffled = s_[shuffle_indices]
+    """Step 2: shuffle the train set and split the train set into train and dev sets"""
+    shuffle_indices = np.random.permutation(np.arange(len(y)))
+    x_top_shuffled = x_top[shuffle_indices]
+    x_bottom_shuffled = x_bottom[shuffle_indices]
+    y_shuffled = y[shuffle_indices]
+    target_top_shuffled = target_top[shuffle_indices]
+    target_bottom_shuffled = target_bottom[shuffle_indices]
+    t_top_shuffled = t_top[shuffle_indices]
+    t_bottom_shuffled = t_bottom[shuffle_indices]
+    s_shuffled = s[shuffle_indices]
     x_top_train, x_top_dev,x_bottom_train,x_bottom_dev, y_train, y_dev,target_top_train, target_top_dev,target_bottom_train,target_bottom_dev, t_top_train, t_top_dev, t_bottom_train, t_bottom_dev, s_train, s_dev = train_test_split(x_top_shuffled,x_bottom_shuffled, y_shuffled,target_top_shuffled,target_bottom_shuffled, t_top_shuffled, t_bottom_shuffled,s_shuffled, test_size=0.1)
 
-    """Step 4: save the labels into labels.json since predict.py needs it"""
+    """Step 3: save the labels into labels.json since predict.py needs it"""
     with open('./labels.json', 'w') as outfile:
         json.dump(labels, outfile, indent=4)
 
@@ -160,7 +174,7 @@ def train_cnn(dataset_name):
     logging.info('t_train: {}, t_dev: {}, t_test: {}'.format(len(t_top_train), len(t_top_dev), len(t_top_test)))
     logging.info('s_train: {}, s_dev: {}, s_test: {}'.format(len(s_train), len(s_dev), len(s_test)))
 
-    """Step 5: build a graph and cnn object"""
+    """Step 4: build a graph and cnn object"""
     graph = tf.Graph()
     with graph.as_default():
         session_conf = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
