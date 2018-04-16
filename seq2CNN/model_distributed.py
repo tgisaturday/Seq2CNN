@@ -7,35 +7,37 @@ regularizer = tf.contrib.layers.l2_regularizer(1e-3)
 
 class seq2CNN(object):  
     def __init__(self,num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size,layer_norm=True):
-        
-        self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
+        self.input_top_x = tf.placeholder(tf.int32, [None, None], name='input_top_x')
+        self.input_bottom_x = tf.placeholder(tf.int32, [None, None], name='input_bottom_x')
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
         self.dropout_keep_prob = tf.placeholder(tf.float32, name='dropout_keep_prob')
         self.batch_size = tf.placeholder(tf.int32, name='batch_size')
-        self.targets = tf.placeholder(tf.int32, [None, None], name='targets')
-        self.text_length = tf.placeholder(tf.int32, (None,), name='text_length')
+        self.targets_top = tf.placeholder(tf.int32, [None, None], name='targets_top')
+        self.targets_bottom = tf.placeholder(tf.int32, [None, None], name='targets_bottom')
+        self.text_top_length = tf.placeholder(tf.int32, (None,), name='text_top_length')
+        self.text_bottom_length = tf.placeholder(tf.int32, (None,), name='text_bottom_length')
         self.summary_length = tf.placeholder(tf.int32, (None,), name='summary_length')
         self.is_training = tf.placeholder(tf.bool, name='is_training')
         
-        
+        pooled_outputs = []
         with tf.device('/cpu:0'),tf.name_scope('embedding'):
             embeddings = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='W')
-            enc_embed_input = tf.nn.embedding_lookup(embeddings, self.input_x)
+            enc_embed_input_top = tf.nn.embedding_lookup(embeddings, self.input_top_x)
+            enc_embed_input_bottom = tf.nn.embedding_lookup(embeddings, self.input_bottom_x)
             embedding_size = embedding_size
 
         #seq2seq layers
-        with tf.name_scope('seq2seq'):
-            batch_size = tf.reshape(self.batch_size, [])
-            enc_output, enc_state = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob,layer_norm)
+        batch_size = tf.reshape(self.batch_size, [])
+        enc_output, enc_state = encoding_layer(rnn_size, self.text_top_length, rnn_num_layers, enc_embed_input_top, self.dropout_keep_prob,0,layer_norm)
             
-            dec_input = process_encoding_input(self.targets, vocab_to_int, batch_size)
-            dec_embed_input = tf.nn.embedding_lookup(embeddings, dec_input)
-            training_logits  = decoding_layer(dec_embed_input,
+        dec_input = process_encoding_input(self.targets_top, vocab_to_int, batch_size)
+        dec_embed_input = tf.nn.embedding_lookup(embeddings, dec_input)
+        training_logits  = decoding_layer(dec_embed_input,
                                                 embeddings,
                                                 enc_output,
                                                 enc_state, 
                                                 vocab_size, 
-                                                self.text_length,
+                                                self.text_top_length,
                                                 self.summary_length,
                                                 max_summary_length,
                                                 rnn_size, 
@@ -43,40 +45,83 @@ class seq2CNN(object):
                                                 self.dropout_keep_prob, 
                                                 batch_size,
                                                 rnn_num_layers,
-                                                layer_norm)
-            self.training_logits =tf.argmax(training_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
+                                                0,layer_norm)
+        self.training_logits =tf.argmax(training_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
         self.training_logits = tf.reshape(self.training_logits, [batch_size,max_summary_length])
+        masks = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
+        seq_loss = tf.contrib.seq2seq.sequence_loss(training_logits[0].rnn_output,self.targets_top,masks)
+            
+        self.decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
+        self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1) 
+        self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
+        filter_sizes=[3,4,5]
 
-
-    
-        #VGGnet_Bigram
-        with tf.name_scope('textCNN'):
-            self.decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
-            self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1) 
-            self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
-            filter_sizes=[3,4,5]
-            pooled_outputs = []
-            for i, filter_size in enumerate(filter_sizes):
-                with tf.name_scope('conv-maxpool-%s' % filter_size):
-                    # Convolution Layer
-                    filter_shape = [filter_size, embedding_size, 1, num_filters]
-                    W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
-                    b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
-                    conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
-                    #Apply nonlinearity
-                    h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-                    h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
-                    # Maxpooling over the outputs
-                    pooled = tf.nn.max_pool(h, ksize=[1, max_summary_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],
+        for i, filter_size in enumerate(filter_sizes):
+            with tf.name_scope('conv-maxpool-%s' % filter_size):
+                # Convolution Layer
+                filter_shape = [filter_size, embedding_size, 1, num_filters]
+                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+                b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+                conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
+                #Apply nonlinearity
+                h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+                h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
+                # Maxpooling over the outputs
+                pooled = tf.nn.max_pool(h, ksize=[1, max_summary_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],
                                         padding='VALID', name='pool')
-                    pooled_outputs.append(pooled)
-            # Combine all the pooled features
-            num_filters_total = num_filters * len(filter_sizes)
+                pooled_outputs.append(pooled)
+
+            
+        batch_size1 = tf.reshape(self.batch_size, [])
+        enc_output1, enc_state1 = encoding_layer(rnn_size, self.text_bottom_length, rnn_num_layers, enc_embed_input_bottom, self.dropout_keep_prob,1,layer_norm)
+            
+        dec_input1 = process_encoding_input(self.targets_bottom, vocab_to_int, batch_size1)
+        dec_embed_input1 = tf.nn.embedding_lookup(embeddings, dec_input1)
+        training_logits1  = decoding_layer(dec_embed_input1,
+                                                embeddings,
+                                                enc_output1,
+                                                enc_state1, 
+                                                vocab_size, 
+                                                self.text_bottom_length,
+                                                self.summary_length,
+                                                max_summary_length,
+                                                rnn_size, 
+                                                vocab_to_int, 
+                                                self.dropout_keep_prob, 
+                                                batch_size1,
+                                                rnn_num_layers,
+                                                1, layer_norm)
+        self.training_logits1 =tf.argmax(training_logits1[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
+        self.training_logits1 = tf.reshape(self.training_logits1, [batch_size1,max_summary_length])
+        masks1 = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
+        seq_loss1 = tf.contrib.seq2seq.sequence_loss(training_logits1[0].rnn_output,self.targets_bottom,masks1)
+            
+        self.decoder_output1 = tf.nn.embedding_lookup(embeddings, self.training_logits1)
+        self.decoder_output_expanded1 = tf.expand_dims(self.decoder_output1, -1) 
+        self.cnn_input1 = tf.contrib.layers.batch_norm(self.decoder_output_expanded1,center=True, scale=True,is_training=self.is_training)
+        filter_sizes1=[3,4,5]
+
+        for i, filter_size in enumerate(filter_sizes1):
+            with tf.name_scope('conv-maxpool-%s' % filter_size):
+                # Convolution Layer
+                filter_shape = [filter_size, embedding_size, 1, num_filters]
+                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name='W')
+                b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
+                conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
+                #Apply nonlinearity
+                h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+                h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
+                # Maxpooling over the outputs
+                pooled = tf.nn.max_pool(h, ksize=[1, max_summary_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],
+                                        padding='VALID', name='pool')
+                pooled_outputs.append(pooled)
+    
+            
+        with tf.name_scope('output'):
+            num_filters_total = num_filters * 6
             self.h_pool = tf.concat(pooled_outputs, 3)
             self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
-                
-        with tf.name_scope('output'):
-            W = tf.get_variable('W', shape=[num_filters_total, num_classes],
+            W = tf.get_variable('W', shape=[num_filters*6, num_classes],
                                     initializer=tf.contrib.layers.xavier_initializer())
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name='b')
             self.scores = tf.nn.xw_plus_b(self.h_pool_flat, W, b, name='scores')
@@ -86,10 +131,8 @@ class seq2CNN(object):
         with tf.name_scope('loss'):
             regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
             cnn_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores)
-            masks = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
-            seq_loss = tf.contrib.seq2seq.sequence_loss(training_logits[0].rnn_output,self.targets,masks)
             self.loss = tf.reduce_mean(cnn_loss)+tf.reduce_sum(regularization_losses)
-            self.seq_loss = seq_loss
+            self.seq_loss = tf.reduce_mean(seq_loss + seq_loss1)
         # Accuracy
         with tf.name_scope('accuracy'):
             correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
@@ -106,11 +149,11 @@ def process_encoding_input(target_data, vocab_to_int, batch_size):
 
     return dec_input 
 
-def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob, layer_norm=True):
+def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob,gpu_num, layer_norm=True):
     '''Create the encoding layer'''
     
     for layer in range(num_layers):
-        with tf.variable_scope('encoder_{}'.format(layer)):
+        with tf.variable_scope('encoder_{}_{}'.format(gpu_num,layer)):
             if layer_norm:
                 cell_fw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
                 cell_bw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
@@ -150,11 +193,11 @@ def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_t
 
 
 
-def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers,layer_norm=True):
+def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers,gpu_num,layer_norm=True):
     '''Create the decoding cell and attention for the training and inference decoding layers'''
 
     for layer in range(num_layers):
-        with tf.variable_scope('decoder_{}'.format(layer)):
+        with tf.variable_scope('decoder_{}_{}'.format(gpu_num,layer)):
             if layer_norm:
                 dec_cell =tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
             else:
@@ -178,7 +221,7 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
     initial_state =dec_cell.zero_state(dtype=tf.float32, batch_size=batch_size)
     initial_state = initial_state.clone(cell_state=enc_state[0])
 
-    with tf.variable_scope("decode"):
+    with tf.variable_scope("decode_{}".format(gpu_num)):
         training_logits = training_decoding_layer(embeddings,dec_embed_input,
                                                   summary_length,                                                                                                                                           vocab_to_int['GO'], 
                                                   vocab_to_int['EOS'],

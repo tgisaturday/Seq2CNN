@@ -1,9 +1,9 @@
 {
-    "num_epochs": 10,
+    "num_epochs": 15,
     "batch_size": 128,
     "learning_rate": 0.001,
     "epsilon": 0.01,
-    "min_frequency": 10,
+    "min_frequency": 3,
     "max_length": 300,
     "max_summary_length": 50,
     "rnn_size": 128,
@@ -15,5 +15,5 @@
     "enable_max_len": 0,
     "summary_using_keywords": 1,
     "layer_norm": 1,
-    "watch_rnn_output": 1
+    "watch_rnn_output": 0
 }

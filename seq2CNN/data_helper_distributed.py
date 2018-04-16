@@ -20,6 +20,15 @@ def empty_remover(text):
             removed.append(word)
     return removed
 
+def split_data(raw):
+    top = []
+    bottom = []
+    for x in raw:
+        margin = len(x)//2
+        top.append(x[:margin])
+        bottom.append(x[margin:])
+    return top, bottom
+
 def clean_str(text,max_length,enable_max):
     """Clean sentence"""
     text = text.lower()
@@ -54,14 +63,18 @@ def clean_str(text,max_length,enable_max):
         
     return ' '.join(text).strip()
 
-def gen_summary(text,max_length):
+def gen_summary(text,max_length, is_top):
     """Clean sentence"""
     sentence = summarize(text)
     bow = sentence
     bow = bow.lower()
     bow = bow.split()
-    #bow = bow + keywords(text,split = True)
-    bow = bow + text.lower().split()
+
+    splited = text.lower().split()
+    if is_top:
+        bow = bow + splited[:len(splited)//2]
+    else:
+        bow = bow + splited[-(max_length-len(bow)):]
     new_text = []
     contractions = get_contractions()
     for word in bow:
@@ -105,16 +118,15 @@ def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enabl
     np.fill_diagonal(one_hot, 1)
     label_dict = dict(zip(labels, one_hot))
 
-    x_raw = df[selected[1]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
+    x_raw = df[selected[2]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
+    x_top_raw, x_bottom_raw = split_data(x_raw)
     y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
 
+    target_top_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length,True)).tolist()
+    target_bottom_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length,False)).tolist()
 
-    if enable_keywords:
-        target_raw = df[selected[1]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-    else:
-        target_raw = df[selected[1]].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
-
-    return x_raw, y_raw,target_raw, df, labels
+        
+    return x_raw,x_top_raw, x_bottom_raw, y_raw,target_top_raw, target_bottom_raw, df, labels
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """Iterate the data batch by batch"""
