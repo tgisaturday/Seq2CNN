@@ -37,12 +37,13 @@ def clean_str(text,max_length,enable_max):
     text = re.sub(r'\<a href', ' ', text)
     text = re.sub(r'&amp;', '', text) 
     text = re.sub(r'[_"\-;%()|+&=*%.,!?:#$@\[\]/]', ' ', text)
+    text = re.sub(r'[0-9]', '', text)
     text = re.sub(r'<br />', ' ', text)
     text = re.sub(r'\'', ' ', text)
     
     text = text.split(' ')
-    #stops = set(stopwords.words("english"))
-    #text = [w for w in text if not w in stops] 
+    stops = set(stopwords.words("english"))
+    text = [w for w in text if not w in stops] 
     
     text = empty_remover(text)
     if enable_max :
@@ -75,11 +76,12 @@ def gen_summary(text,max_length):
     text = re.sub(r'\<a href', ' ', text)
     text = re.sub(r'&amp;', '', text) 
     text = re.sub(r'[_"\-;%()|+&=*%.,!?:#$@\[\]/]', ' ', text)
+    text = re.sub(r'[0-9]', '', text)
     text = re.sub(r'<br />', ' ', text)
     text = re.sub(r'\'', ' ', text)
     text = text.split(' ')
-    #stops = set(stopwords.words("english"))
-    #text = [w for w in text if not w in stops]
+    stops = set(stopwords.words("english"))
+    text = [w for w in text if not w in stops]
     text = ['GO']+text
     text = empty_remover(text)
     if len(text) >= max_length:

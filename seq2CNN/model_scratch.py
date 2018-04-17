@@ -66,7 +66,7 @@ class seq2CNN(object):
                     conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
                     #Apply nonlinearity
                     h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-                    h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
+                    h = tf.nn.relu(tf.nn.bias_add(h, b), name='relu')
                     # Maxpooling over the outputs
                     pooled = tf.nn.max_pool(h, ksize=[1, max_summary_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],
                                         padding='VALID', name='pool')
@@ -75,16 +75,18 @@ class seq2CNN(object):
             num_filters_total = num_filters * len(filter_sizes)
             self.h_pool = tf.concat(pooled_outputs, 3)
             self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
-                
+        with tf.name_scope('dropout'):
+            self.h_drop = tf.nn.dropout(self.h_pool_flat, self.dropout_keep_prob)        
         with tf.name_scope('output'):
             W = tf.get_variable('W', shape=[num_filters_total, num_classes],
                                     initializer=tf.contrib.layers.xavier_initializer(),regularizer = regularizer)
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name='b')
-            self.scores = tf.nn.xw_plus_b(self.h_pool_flat, W, b, name='scores')
+            self.scores = tf.nn.xw_plus_b(self.h_drop, W, b, name='scores')
             self.predictions = tf.argmax(self.scores, 1, name='predictions')
                 
         # Calculate mean cross-entropy loss
         with tf.name_scope('loss'):
+            
             regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
             cnn_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores)
             masks = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
