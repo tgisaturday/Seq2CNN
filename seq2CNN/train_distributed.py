@@ -184,7 +184,7 @@ def train_cnn(dataset_name):
                 layer_norm=layer_norm
                 )
             global_step = tf.Variable(0, name="global_step", trainable=False)            
-            num_batches_per_epoch = int((len(x_top_train)-1)/params['batch_size']) + 1
+            num_batches_per_epoch = int((len(x_train)-1)/params['batch_size']) + 1
             epsilon=params['epsilon']
             learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
             optimizer = tf.train.AdamOptimizer(learning_rate,epsilon)
@@ -220,11 +220,11 @@ def train_cnn(dataset_name):
                     cnn.targets_bottom: target_bottom_batch,
                     cnn.text_length: t_batch,
                     cnn.summary_length: s_batch,
-                    cnn.batch_size: len(x_top_batch),
+                    cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
-                _, logits, step, loss,seq_loss, acc = sess.run([train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.accuracy], feed_dict)
-                return loss, seq_loss, acc
+                _, logits, step, loss,seq_top_loss,seq_bottom_loss, acc = sess.run([train_op,cnn.training_logits, global_step, cnn.loss,cnn.seq_top_loss,cnn.seq_bottom_loss, cnn.accuracy], feed_dict)
+                return loss, seq_top_loss,seq_bottom_loss, acc
             def seq_top_train_step(x_batch, y_batch,target_top_batch,target_bottom_batch,t_batch,s_batch):
                 feed_dict = {
                     cnn.input_x: x_batch,
@@ -233,11 +233,11 @@ def train_cnn(dataset_name):
                     cnn.targets_bottom: target_bottom_batch,
                     cnn.text_length: t_batch,
                     cnn.summary_length: s_batch,
-                    cnn.batch_size: len(x_top_batch),
+                    cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
-                _, logits, step, loss,seq_loss, acc = sess.run([seq_top_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.accuracy], feed_dict)
-                return loss, seq_loss, acc
+                _, logits, step, loss,seq_top_loss,seq_bottom_loss, acc = sess.run([seq_top_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_top_loss,cnn.seq_bottom_loss, cnn.accuracy], feed_dict)
+                return loss, seq_top_loss,seq_bottom_loss, acc
             def seq_bottom_train_step(x_batch, y_batch,target_top_batch,target_bottom_batch,t_batch,s_batch):
                 feed_dict = {
                     cnn.input_x: x_batch,
@@ -246,11 +246,11 @@ def train_cnn(dataset_name):
                     cnn.targets_bottom: target_bottom_batch,
                     cnn.text_length: t_batch,
                     cnn.summary_length: s_batch,
-                    cnn.batch_size: len(x_top_batch),
+                    cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
-                _, logits, step, loss,seq_loss, acc = sess.run([seq_bottom_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.accuracy], feed_dict)
-                return loss, seq_loss, acc
+                _, logits, step, loss,seq_top_loss,seq_bottom_loss, acc = sess.run([seq_bottom_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_top_loss,cnn.seq_bottom_loss, cnn.accuracy], feed_dict)
+                return loss, seq_top_loss,seq_bottom_loss, acc
 
             # One evaluation step: evaluate the model with one batch
             def dev_step(x_batch, y_batch,target_top_batch,target_bottom_batch,t_batch,s_batch):
@@ -261,11 +261,10 @@ def train_cnn(dataset_name):
                     cnn.targets_bottom: target_bottom_batch,
                     cnn.text_length: t_batch,
                     cnn.summary_length: s_batch,
-                    cnn.batch_size: len(x_top_batch),
-                    cnn.batch_size: len(x_top_batch),
+                    cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: 1.0,
                     cnn.is_training: False}
-                step, loss, seq_loss, acc, num_correct,examples = sess.run([global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct,cnn.training_logits],feed_dict)
+                step, loss, seq_top_loss,seq_bottom_loss, acc, num_correct,examples = sess.run([global_step, cnn.loss, cnn.seq_top_loss,cnn.seq_bottom_loss, cnn.accuracy, cnn.num_correct,cnn.training_logits],feed_dict)
                 if watch_rnn_output == True:
                     pad = vocab_to_int['PAD']
                     result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
@@ -277,20 +276,19 @@ def train_cnn(dataset_name):
             sess.run(tf.global_variables_initializer())
 
             # Training starts here
-            train_batches = data_helper.batch_iter(list(zip(x_top_train,x_bottom_train,y_train, target_top_train,target_bottom_train,t_top_train,t_bottom_train, s_train)), params['batch_size'],
-                                                   params['num_epochs'])
+            train_batches = data_helper.batch_iter(list(zip(x_train,y_train, target_top_train,target_bottom_train,t_train, s_train)), params['batch_size'],params['num_epochs'])
             best_accuracy, best_at_step = 0, 0
 
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch = zip(*train_batch)
-                train_loss, train_seq_loss, train_acc = seq_top_train_step(x_train_batch,y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch)
-                train_loss, train_seq_loss, train_acc = seq_bottom_train_step(x_train_batch,y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch)
-                train_loss, train_seq_loss, train_acc = train_step(x_train_batch,y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch)
+                train_loss, train_seq_top_loss,train_seq_bottom_loss, train_acc = seq_top_train_step(x_train_batch,y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch)
+                train_loss,train_seq_top_loss,train_seq_bottom_loss,train_acc = seq_bottom_train_step(x_train_batch,y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch)
+                train_loss,train_seq_top_loss,train_seq_bottom_loss, train_acc = train_step(x_train_batch,y_train_batch,target_top_train_batch,target_bottom_train_batch, t_train_batch, s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
 
                 if current_step%params['evaluate_every'] ==0:
-                    logging.critical('step: {} accuracy: {} cnn_loss: {} seq_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss))
+                    logging.critical('step: {} accuracy: {} cnn_loss: {} seq_top_loss: {} seq_bottom_loss: {}'.format(current_step, train_acc, train_loss, train_seq_top_loss,train_seq_bottom_loss))
 
                 
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""

@@ -91,10 +91,10 @@ def gen_summary(text,max_length):
 
 def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enable_keywords):
     """Load sentences and labels"""
-    df = pd.read_csv(filename, names=['label', 'company', 'text'], dtype={'text': object})
-    #df = pd.read_csv(filename, names=['label','text'], dtype={'text': object})
-    selected = ['label', 'company','text']
-    #selected = ['label','text']
+    #df = pd.read_csv(filename, names=['label', 'company', 'text'], dtype={'text': object})
+    df = pd.read_csv(filename, names=['label','text'], dtype={'text': object})
+    #selected = ['label', 'company','text']
+    selected = ['label','text']
     non_selected = list(set(df.columns) - set(selected))
     df = df.drop(non_selected, axis=1) # Drop non selected columns
     df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows

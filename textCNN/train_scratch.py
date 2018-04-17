@@ -60,8 +60,10 @@ def train_cnn(dataset_name):
 
             global_step = tf.Variable(0, name="global_step", trainable=False)
             optimizer = tf.train.AdamOptimizer(1e-3)
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
-            train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+            with tf.control_dependencies(update_ops):
+                train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
             timestamp = str(int(time.time()))
             #timestamp = 'H'
