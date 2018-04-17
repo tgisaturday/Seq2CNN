@@ -55,7 +55,7 @@ class seq2CNN(object):
             self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1) 
             self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
             #self.cnn_input = self.decoder_output_expanded
-            filter_sizes=[3,4,5]
+            filter_sizes=[1,3,5]
             pooled_outputs = []
             for i, filter_size in enumerate(filter_sizes):
                 with tf.name_scope('conv-maxpool-%s' % filter_size):

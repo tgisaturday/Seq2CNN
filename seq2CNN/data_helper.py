@@ -41,8 +41,8 @@ def clean_str(text,max_length,enable_max):
     text = re.sub(r'\'', ' ', text)
     
     text = text.split(' ')
-    stops = set(stopwords.words("english"))
-    text = [w for w in text if not w in stops] 
+    #stops = set(stopwords.words("english"))
+    #text = [w for w in text if not w in stops] 
     
     text = empty_remover(text)
     if enable_max :
@@ -78,8 +78,8 @@ def gen_summary(text,max_length):
     text = re.sub(r'<br />', ' ', text)
     text = re.sub(r'\'', ' ', text)
     text = text.split(' ')
-    stops = set(stopwords.words("english"))
-    text = [w for w in text if not w in stops]
+    #stops = set(stopwords.words("english"))
+    #text = [w for w in text if not w in stops]
     text = ['GO']+text
     text = empty_remover(text)
     if len(text) >= max_length:
@@ -91,10 +91,10 @@ def gen_summary(text,max_length):
 
 def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enable_keywords):
     """Load sentences and labels"""
-    #df = pd.read_csv(filename, names=['label', 'company', 'text'], dtype={'text': object})
-    df = pd.read_csv(filename, names=['label','text'], dtype={'text': object})
-    #selected = ['label', 'company','text']
-    selected = ['label','text']
+    df = pd.read_csv(filename, names=['label', 'company', 'text'], dtype={'text': object})
+    #df = pd.read_csv(filename, names=['label','text'], dtype={'text': object})
+    selected = ['label', 'company','text']
+    #selected = ['label','text']
     non_selected = list(set(df.columns) - set(selected))
     df = df.drop(non_selected, axis=1) # Drop non selected columns
     df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows

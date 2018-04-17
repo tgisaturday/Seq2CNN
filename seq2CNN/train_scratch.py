@@ -213,8 +213,8 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
-                _, logits, step, loss,seq_loss, acc = sess.run([train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.accuracy], feed_dict)
-                return loss, seq_loss, acc
+                _, logits, step, loss,seq_loss, acc, examples = sess.run([train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.accuracy,cnn.training_logits], feed_dict)
+                return loss, seq_loss, acc, examples
             def seq_train_step(x_batch, y_batch,target_batch,t_batch,s_batch):
                 feed_dict = {
                     cnn.input_x: x_batch,
@@ -258,15 +258,17 @@ def train_cnn(dataset_name):
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
-                train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
-                train_loss, train_seq_loss, train_acc = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 current_step = tf.train.global_step(sess, global_step)
-                if current_step%params['evaluate_every'] ==0:
-                    logging.critical('step: {} accuracy: {} cnn_loss: {} seq_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss))
-
-                
+                train_loss, train_seq_loss, train_acc,examples, = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
+                flag=0
+                if current_step < num_batches_per_epoch*params['helper_support_margin']:
+                    train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""
                 if current_step % params['evaluate_every'] == 0:
+                    logging.critical('step: {} accuracy: {} cnn_loss: {} seq_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss))
+                    pad = vocab_to_int['PAD']
+                    result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
+                    logging.info('{}'.format(result))
                     dev_batches = data_helper.batch_iter(list(zip(x_dev, y_dev,target_dev,t_dev,s_dev)), params['batch_size'], 1)
                     total_dev_correct = 0
                     for dev_batch in dev_batches:
@@ -287,6 +289,7 @@ def train_cnn(dataset_name):
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_test,t_test,s_test)), params['batch_size'], 1)
             total_test_correct = 0
+            watch_rnn_output = True
             for test_batch in test_batches:
                 x_test_batch, y_test_batch,target_test_batch, t_test_batch,s_test_batch = zip(*test_batch)
                 num_test_correct = dev_step(x_test_batch, y_test_batch,target_test_batch,t_test_batch,s_test_batch)

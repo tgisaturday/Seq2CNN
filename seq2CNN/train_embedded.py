@@ -52,6 +52,7 @@ def convert_to_ints(text,vocab_to_int, word_count, unk_count, eos=False):
 def train_cnn(dataset_name):
     """Step 0: load sentences, labels, and training parameters"""
     dataset = '../dataset/'+dataset_name+'_csv/train.csv'
+    testset = '../dataset/'+dataset_name+'_csv/test.csv'
     parameter_file = "./parameters.json"
     params = json.loads(open(parameter_file).read())
     learning_rate = params['learning_rate']
@@ -82,7 +83,7 @@ def train_cnn(dataset_name):
     # Load Conceptnet Numberbatch's (CN) embeddings, similar to GloVe, but probably better 
     # (https://github.com/commonsense/conceptnet-numberbatch)
     embeddings_index = {}
-    with open('./dataset/embeddings/numberbatch-en.txt', encoding='utf-8') as f:
+    with open('../dataset/embeddings/numberbatch-en.txt', encoding='utf-8') as f:
         for line in f:
             values = line.split(' ')
             word = values[0]
@@ -155,6 +156,8 @@ def train_cnn(dataset_name):
 
     int_summaries, word_count, unk_count = convert_to_ints(target_raw,vocab_to_int, word_count, unk_count)
     int_texts, word_count, unk_count = convert_to_ints(x_raw,vocab_to_int, word_count, unk_count, eos=True)
+    int_test_summaries, word_count, unk_count = convert_to_ints(target_test_raw,vocab_to_int, word_count, unk_count)
+    int_test_texts, word_count, unk_count = convert_to_ints(x_test_raw,vocab_to_int, word_count, unk_count, eos=True)    
     unk_percent = round(unk_count/word_count,4)*100
 
     logging.info("Total number of words in texts: {}".format(word_count))
@@ -162,30 +165,35 @@ def train_cnn(dataset_name):
     logging.info("Percent of words that are UNK: {0:.2f}%".format(unk_percent))
     
     """Step 1: pad each sentence to the same length and map each word to an id"""
-
     x_int = pad_sentence_batch(vocab_to_int,int_texts)
     target_int = pad_sentence_batch(vocab_to_int,int_summaries)
+    x_test_int = pad_sentence_batch(vocab_to_int,int_test_texts)
+    target_test_int = pad_sentence_batch(vocab_to_int,int_test_summaries)
     x = np.array(x_int)
     y = np.array(y_raw)
+    x_test = np.array(x_test_int)
+    y_test = np.array(y_test_raw)
+    
     target = np.array(target_int)
+    target_test = np.array(target_test_int)    
     t = np.array(list(len(x) for x in x_int))
-    max_summary_length = max([len(sentence) for sentence in target_int])
-    s = np.array(list(max_summary_length for x in x_int))
+    t_test = np.array(list(len(x) for x in x_test_int))
+    s = np.array(list(params['max_summary_length'] for x in x_int))
+    s_test = np.array(list(params['max_summary_length'] for x in x_test_int))
 
 
     
     """Step 2: split the original dataset into train and test sets"""
-    x_, x_test, y_, y_test,target_, target_test, t_,t_test,s_,s_test = train_test_split(x, y,target, t, s, test_size=0.1, random_state=42)
+    #x_, x_test, y_, y_test,target_, target_test, t_,t_test,s_,s_test = train_test_split(x, y,target, t, s, test_size=0.1, random_state=42)
 
     """Step 3: shuffle the train set and split the train set into train and dev sets"""
-    shuffle_indices = np.random.permutation(np.arange(len(y_)))
-    x_shuffled = x_[shuffle_indices]
-    y_shuffled = y_[shuffle_indices]
-    target_shuffled = target_[shuffle_indices]
-    t_shuffled = t_[shuffle_indices]
-    s_shuffled = s_[shuffle_indices]
+    shuffle_indices = np.random.permutation(np.arange(len(y)))
+    x_shuffled = x[shuffle_indices]
+    y_shuffled = y[shuffle_indices]
+    target_shuffled = target[shuffle_indices]
+    t_shuffled = t[shuffle_indices]
+    s_shuffled = s[shuffle_indices]
     x_train, x_dev, y_train, y_dev,target_train, target_dev, t_train, t_dev,s_train, s_dev = train_test_split(x_shuffled, y_shuffled,target_shuffled, t_shuffled,s_shuffled, test_size=0.1)
-
     """Step 4: save the labels into labels.json since predict.py needs it"""
     with open('./labels.json', 'w') as outfile:
         json.dump(labels, outfile, indent=4)
