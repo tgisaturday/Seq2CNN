@@ -65,6 +65,10 @@ def train_cnn(dataset_name):
         enable_keywords = True
     else:
         enable_keywords = False
+    if params['use_gru'] == 1:
+        use_gru = True
+    else:
+        use_gru = False
     if params['layer_norm'] == 1:
         layer_norm= True
     else:
@@ -74,8 +78,8 @@ def train_cnn(dataset_name):
     else:
         watch_rnn_output = False
         
-    x_raw, y_raw, target_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
-    x_test_raw, y_test_raw, target_test_raw, df_test, labels_test = data_helper.load_data_and_labels(testset,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
+    x_raw, y_raw, target_raw, df, labels = data_helper.load_data_and_labels(dataset,dataset_name,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
+    x_test_raw, y_test_raw, target_test_raw, df_test, labels_test = data_helper.load_data_and_labels(testset,dataset_name,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
     word_counts = {}
     
     count_words(word_counts, x_raw)
@@ -178,7 +182,8 @@ def train_cnn(dataset_name):
                 num_filters=params['num_filters'],
                 vocab_size=len(vocab_to_int),
                 embedding_size=params['embedding_dim'],
-                layer_norm=layer_norm
+                layer_norm=layer_norm,
+                use_gru=use_gru
                 )
             global_step = tf.Variable(0, name="global_step", trainable=False)            
             num_batches_per_epoch = int((len(x_train)-1)/params['batch_size']) + 1

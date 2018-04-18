@@ -91,31 +91,77 @@ def gen_summary(text,max_length):
         text = text[0:max_length]
     return ' '.join(text)
 
-def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enable_keywords):
+def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,enable_max,enable_keywords):
     """Load sentences and labels"""
-    df = pd.read_csv(filename, names=['label', 'company', 'text'], dtype={'text': object})
-    #df = pd.read_csv(filename, names=['label','text'], dtype={'text': object})
-    selected = ['label', 'company','text']
-    #selected = ['label','text']
-    non_selected = list(set(df.columns) - set(selected))
-    df = df.drop(non_selected, axis=1) # Drop non selected columns
-    df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
-    df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
+    if dataset_name == 'ag_news' or dataset_name == 'dbpedia' or dataset_name == 'sogou_news' or dataset_name == 'amazon_review_full' or dataset_name == 'amazon_review_polarity' :
+        df = pd.read_csv(filename, names=['label', 'title', 'text'], dtype={'title': object,'text': object})
+        selected = ['label', 'title','text']
+
+        non_selected = list(set(df.columns) - set(selected))
+        df['merged'] = df[['title', 'text']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
+        df = df.drop(non_selected, axis=1) # Drop non selected columns
+        df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
+        df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
     # Map the actual labels to one hot labels
-    labels = sorted(list(set(df[selected[0]].tolist())))
-    one_hot = np.zeros((len(labels), len(labels)), int)
-    np.fill_diagonal(one_hot, 1)
-    label_dict = dict(zip(labels, one_hot))
+        labels = sorted(list(set(df[selected[0]].tolist())))
+        one_hot = np.zeros((len(labels), len(labels)), int)
+        np.fill_diagonal(one_hot, 1)
+        label_dict = dict(zip(labels, one_hot))
 
-    x_raw = df[selected[2]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
-    y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
+        x_raw = df['merged'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
+        y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
+        print('example: {}'.format(x_raw[0]))
+        if enable_keywords:
+            target_raw = df['merged'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+        else:
+            target_raw = df['merged'].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
+            
+    elif dataset_name == 'yelp_review_full' or dataset_name == 'yelp_review_polarity':
+        df = pd.read_csv(filename, names=['label','text'], dtype={'text': object})
+        selected = ['label','text']
+        non_selected = list(set(df.columns) - set(selected))
+        df = df.drop(non_selected, axis=1) # Drop non selected columns
+        df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
+        df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
+    # Map the actual labels to one hot labels
+        labels = sorted(list(set(df[selected[0]].tolist())))
+        one_hot = np.zeros((len(labels), len(labels)), int)
+        np.fill_diagonal(one_hot, 1)
+        label_dict = dict(zip(labels, one_hot))
 
+        x_raw = df['text'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
+        y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
+        print('example: {}'.format(x_raw[0]))
+        if enable_keywords:
+            target_raw = df['text'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+        else:
+            target_raw = df['text'].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
+            
+    elif dataset_name == 'yahoo_answers':
+        df = pd.read_csv(filename, names=['label', 'title', 'content','answer'], dtype={'title': object,'answer': object,'content': object})
+        selected = ['label', 'title','content','answer']
+        
+        non_selected = list(set(df.columns) - set(selected))
+        df['temp'] = df[['title','content']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
+        df['merged'] = df[['temp','answer']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
+        df = df.drop(non_selected, axis=1) # Drop non selected columns
+        df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
+        df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
 
-    if enable_keywords:
-        target_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-    else:
-        target_raw = df[selected[1]].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
+        labels = sorted(list(set(df[selected[0]].tolist())))
+        one_hot = np.zeros((len(labels), len(labels)), int)
+        np.fill_diagonal(one_hot, 1)
+        label_dict = dict(zip(labels, one_hot))
 
+        x_raw = df['merged'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
+        y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
+        print('example: {}'.format(x_raw[0]))
+        if enable_keywords:
+            target_raw = df['merged'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+        else:
+            target_raw = df['merged'].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
+                   
+            
     return x_raw, y_raw,target_raw, df, labels
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):

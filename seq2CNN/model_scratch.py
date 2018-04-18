@@ -6,7 +6,7 @@ from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
 regularizer = tf.contrib.layers.l2_regularizer(1e-3)
 
 class seq2CNN(object):  
-    def __init__(self,num_classes,filter_sizes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size,layer_norm=True):
+    def __init__(self,num_classes,filter_sizes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size,layer_norm=True,use_gru=False):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
@@ -26,7 +26,7 @@ class seq2CNN(object):
         #seq2seq layers
         with tf.name_scope('seq2seq'):
             batch_size = tf.reshape(self.batch_size, [])
-            enc_output, enc_state = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob,layer_norm)
+            enc_output, enc_state = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob,layer_norm,use_gru)
             
             dec_input = process_encoding_input(self.targets, vocab_to_int, batch_size)
             dec_embed_input = tf.nn.embedding_lookup(embeddings, dec_input)
@@ -43,7 +43,8 @@ class seq2CNN(object):
                                                 self.dropout_keep_prob, 
                                                 batch_size,
                                                 rnn_num_layers,
-                                                layer_norm)
+                                                layer_norm,
+                                                use_gru)
             self.training_logits =tf.argmax(training_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
         self.training_logits = tf.reshape(self.training_logits, [batch_size,max_summary_length])
 
@@ -114,7 +115,7 @@ def process_encoding_input(target_data, vocab_to_int, batch_size):
 
     return dec_input 
 
-def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob, layer_norm=True):
+def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob, layer_norm=True,use_gru=False):
     '''Create the encoding layer'''
     
     for layer in range(num_layers):
@@ -122,6 +123,13 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob,
             if layer_norm:
                 cell_fw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
                 cell_bw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
+            elif use_gru:
+                cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
+                cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
+
+                cell_bw = tf.contrib.rnn.GRUCell(rnn_size)   
+                cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
+                
             else:
                 cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
                 cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
@@ -158,13 +166,16 @@ def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_t
 
 
 
-def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers,layer_norm=True):
+def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers,layer_norm=True,use_gru=False):
     '''Create the decoding cell and attention for the training and inference decoding layers'''
 
     for layer in range(num_layers):
         with tf.variable_scope('decoder_{}'.format(layer)):
             if layer_norm:
                 dec_cell =tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
+            elif use_gru:
+                lstm = tf.contrib.rnn.GRUCell(rnn_size)
+                dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
             else:
                 lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
                 dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
