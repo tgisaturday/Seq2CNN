@@ -1,6 +1,7 @@
 {
     "num_epochs": 20,
     "batch_size": 128,
+    "filter_sizes": "1,3,5",
     "learning_rate": 0.001,
     "epsilon": 0.01,
     "min_frequency":3,

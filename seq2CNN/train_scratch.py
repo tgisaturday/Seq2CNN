@@ -56,6 +56,7 @@ def train_cnn(dataset_name):
     parameter_file = "./parameters.json"
     params = json.loads(open(parameter_file).read())
     learning_rate = params['learning_rate']
+    filter_sizes = list(int(x) for x in params['filter_sizes'].split(','))
     if params['enable_max_len'] == 1:
         enable_max = True
     else:
@@ -169,6 +170,7 @@ def train_cnn(dataset_name):
         with sess.as_default():
             cnn = seq2CNN(
                 num_classes=y_train.shape[1],
+                filter_sizes=filter_sizes,
                 max_summary_length=params['max_summary_length'],
                 rnn_size=params['rnn_size'],
                 rnn_num_layers=params['rnn_num_layers'],
