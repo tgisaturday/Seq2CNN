@@ -7,7 +7,7 @@
     "min_frequency":1,
     "helper_support_margin": 20,
     "max_length": 300,
-    "max_summary_length": 10,
+    "max_summary_length": 20,
     "rnn_size": 128,
     "rnn_num_layers": 2,
     "num_filters": 32,
@@ -16,7 +16,9 @@
     "dropout_keep_prob": 0.5,
     "enable_max_len": 0,
     "summary_using_keywords": 1,
-    "layer_norm": 0,
+    "rnn_layer_norm": 0,
+    "fc_layer_norm": 0,
+    "temp_norm": 0,
     "use_gru": 0,
     "watch_rnn_output": 0
 }

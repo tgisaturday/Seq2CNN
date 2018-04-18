@@ -69,10 +69,18 @@ def train_cnn(dataset_name):
         use_gru = True
     else:
         use_gru = False
-    if params['layer_norm'] == 1:
-        layer_norm= True
+    if params['rnn_layer_norm'] == 1:
+        rnn_layer_norm= True
     else:
-        layer_norm = False
+        rnn_layer_norm = False
+    if params['fc_layer_norm'] == 1:
+        fc_layer_norm= True
+    else:
+        fc_layer_norm = False
+    if params['temp_norm'] == 1:
+        temp_norm= True
+    else:
+        temp_norm = False
     if params['watch_rnn_output'] == 1:
         watch_rnn_output = True
     else:
@@ -88,7 +96,9 @@ def train_cnn(dataset_name):
 
     """Step 1: pad each sentence to the same length and map each word to an id"""
     max_document_length = max([len(x.split(' ')) for x in x_raw])
+    min_document_length = min([len(x.split(' ')) for x in x_raw])
     logging.info('The maximum length of all sentences: {}'.format(max_document_length))
+    logging.info('The minimum length of all sentences: {}'.format(min_document_length))
     vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length,
                                                               min_frequency=params['min_frequency'])
     vocab_processor.fit_transform(x_raw)
@@ -182,7 +192,9 @@ def train_cnn(dataset_name):
                 num_filters=params['num_filters'],
                 vocab_size=len(vocab_to_int),
                 embedding_size=params['embedding_dim'],
-                layer_norm=layer_norm,
+                rnn_layer_norm=rnn_layer_norm,
+                fc_layer_norm=fc_layer_norm,
+                temp_norm=temp_norm,
                 use_gru=use_gru
                 )
             global_step = tf.Variable(0, name="global_step", trainable=False)            
