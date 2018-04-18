@@ -37,7 +37,7 @@ def clean_str(text,max_length,enable_max):
     text = re.sub(r'\<a href', ' ', text)
     text = re.sub(r'&amp;', '', text) 
     text = re.sub(r'[_"\-;%()|+&=*%.,!?:#$@\[\]/]', ' ', text)
-    text = re.sub(r'[0-9]', '', text)
+    text = re.sub(r'[0-9]', ' ', text)
     text = re.sub(r'<br />', ' ', text)
     text = re.sub(r'\'', ' ', text)
     
@@ -76,7 +76,7 @@ def gen_summary(text,max_length):
     text = re.sub(r'\<a href', ' ', text)
     text = re.sub(r'&amp;', '', text) 
     text = re.sub(r'[_"\-;%()|+&=*%.,!?:#$@\[\]/]', ' ', text)
-    text = re.sub(r'[0-9]', '', text)
+    text = re.sub(r'[0-9]', ' ', text)
     text = re.sub(r'<br />', ' ', text)
     text = re.sub(r'\'', ' ', text)
     text = text.split(' ')
@@ -107,12 +107,12 @@ def load_data_and_labels(filename,max_length,max_summary_length,enable_max,enabl
     np.fill_diagonal(one_hot, 1)
     label_dict = dict(zip(labels, one_hot))
 
-    x_raw = df[selected[1]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
+    x_raw = df[selected[2]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
     y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
 
 
     if enable_keywords:
-        target_raw = df[selected[1]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+        target_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
     else:
         target_raw = df[selected[1]].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
 

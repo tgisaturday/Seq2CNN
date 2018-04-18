@@ -53,8 +53,8 @@ class seq2CNN(object):
         with tf.name_scope('textCNN'):
             self.decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
             self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1) 
-            self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
-            #self.cnn_input = self.decoder_output_expanded
+            #self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
+            self.cnn_input = self.decoder_output_expanded
             filter_sizes=[1,3,5]
             pooled_outputs = []
             for i, filter_size in enumerate(filter_sizes):
@@ -65,8 +65,9 @@ class seq2CNN(object):
                     b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name='b')
                     conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
                     #Apply nonlinearity
-                    h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-                    h = tf.nn.relu(tf.nn.bias_add(h, b), name='relu')
+                    #h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+                    #h = tf.nn.relu(tf.nn.bias_add(h, b), name='relu')
+                    h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
                     # Maxpooling over the outputs
                     pooled = tf.nn.max_pool(h, ksize=[1, max_summary_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],
                                         padding='VALID', name='pool')

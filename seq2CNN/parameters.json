@@ -3,7 +3,7 @@
     "batch_size": 128,
     "learning_rate": 0.001,
     "epsilon": 0.01,
-    "min_frequency": 5,
+    "min_frequency":3,
     "helper_support_margin": 10,
     "max_length": 300,
     "max_summary_length": 20,
@@ -15,6 +15,6 @@
     "dropout_keep_prob": 0.5,
     "enable_max_len": 0,
     "summary_using_keywords": 1,
-    "layer_norm": 1,
+    "layer_norm": 0,
     "watch_rnn_output": 0
 }
