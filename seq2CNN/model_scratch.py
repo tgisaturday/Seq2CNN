@@ -54,8 +54,10 @@ class seq2CNN(object):
         with tf.name_scope('textCNN'):
             self.decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
             self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)
-            self.cnn_input = self.decoder_output_expanded
-
+            if temp_norm:
+                self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
+            else:
+                self.cnn_input = self.decoder_output_expanded
             pooled_outputs = []
             for i, filter_size in enumerate(filter_sizes):
                 with tf.name_scope('conv-maxpool-%s' % filter_size):
@@ -98,7 +100,8 @@ class seq2CNN(object):
             if fc_layer_norm:
                 h_drop = tf.contrib.layers.batch_norm(h_pool_flat,center=True, scale=True,is_training=self.is_training)
             else:
-                h_drop = tf.nn.dropout(h_pool_flat, self.dropout_keep_prob)
+                h_drop = h_pool_flat
+            h_drop = tf.nn.dropout(h_drop, self.dropout_keep_prob)
                 
             h =tf.nn.relu( tf.nn.xw_plus_b(h_drop, W, b, name='relu'))
             
@@ -109,7 +112,9 @@ class seq2CNN(object):
             if fc_layer_norm:
                 h_drop = tf.contrib.layers.batch_norm(h_pool_flat,center=True, scale=True,is_training=self.is_training)
             else:
-                h_drop = tf.nn.dropout(h_pool_flat, self.dropout_keep_prob)
+                h_drop = h_pool_flat
+            h_drop = tf.nn.dropout(h_drop, self.dropout_keep_prob)
+            
             h =tf.nn.relu( tf.nn.xw_plus_b(h_drop, W, b, name='relu'))
             
         with tf.name_scope('fc-dropout-7'):            
@@ -117,7 +122,8 @@ class seq2CNN(object):
             if fc_layer_norm:
                 h_drop = tf.contrib.layers.batch_norm(h_pool_flat,center=True, scale=True,is_training=self.is_training)
             else:
-                h_drop = tf.nn.dropout(h_pool_flat, self.dropout_keep_prob)      
+                h_drop = h_pool_flat
+            h_drop = tf.nn.dropout(h_drop, self.dropout_keep_prob)     
             W = tf.get_variable('W', shape=[num_filters_total, num_classes],
                                     initializer=tf.contrib.layers.xavier_initializer(),regularizer = regularizer)
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name='b')

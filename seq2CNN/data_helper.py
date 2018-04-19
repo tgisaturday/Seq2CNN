@@ -108,7 +108,7 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
         np.fill_diagonal(one_hot, 1)
         label_dict = dict(zip(labels, one_hot))
 
-        x_raw = df['merged'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
+        x_raw = df[selected[2]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
         if enable_keywords:
             target_raw = df['merged'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
@@ -140,8 +140,8 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
         selected = ['label', 'title','content','answer']
         
         non_selected = list(set(df.columns) - set(selected))
-        df['temp'] = df[['title','content']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
-        df['merged'] = df[['temp','answer']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
+        df['temp'] = df[['content','answer']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
+        df['merged'] = df[['temp','title']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
         df = df.drop(non_selected, axis=1) # Drop non selected columns
         df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
@@ -151,7 +151,7 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
         np.fill_diagonal(one_hot, 1)
         label_dict = dict(zip(labels, one_hot))
 
-        x_raw = df['merged'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
+        x_raw = df['temp'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
         if enable_keywords:
             target_raw = df['merged'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
