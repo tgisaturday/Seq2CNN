@@ -136,7 +136,8 @@ class seq2CNN(object):
             regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
             cnn_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores)
             self.loss = tf.reduce_mean(cnn_loss)+tf.reduce_sum(regularization_losses)
-
+            seq_loss = tf.contrib.seq2seq.sequence_loss(training_logits[0].rnn_output,self.targets,masks)
+            self.seq_loss = seq_loss
         # Accuracy
         with tf.name_scope('accuracy'):
             correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
