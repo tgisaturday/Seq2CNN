@@ -3,7 +3,7 @@
     "batch_size": 128,
     "filter_sizes": "3,4,5",
     "learning_rate": 0.001,
-    "epsilon": 0.05,
+    "epsilon": 0.1,
     "min_frequency":5,
     "helper_support_margin": 20,
     "max_length": 300,
