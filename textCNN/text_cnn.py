@@ -60,38 +60,27 @@ class TextCNN(object):
             W = tf.get_variable('W', shape=[len(filter_sizes)*sequence_length*embedding_size*num_filters, len(filter_sizes)*num_filters],
                                     initializer=initializer,regularizer = regularizer)
             b = tf.get_variable('b', [len(filter_sizes)*num_filters], initializer=tf.constant_initializer(1.0))
+            fc =  tf.nn.xw_plus_b(h_pool_flat, W, b, name='fc5')
             if fc_layer_norm:
-                h_drop = tf.contrib.layers.batch_norm(h_pool_flat,center=True, scale=True,is_training=self.is_training)
-            else:
-                h_drop = h_pool_flat
-            h_drop = tf.nn.dropout(h_drop, self.dropout_keep_prob)
-                
-            self.fc5 =tf.nn.relu( tf.nn.xw_plus_b(h_drop, W, b, name='relu'))
+                fc = tf.contrib.layers.batch_norm(fc,center=True, scale=True,is_training=self.is_training)                
+            relu =tf.nn.relu(fc)
+            self.fc5 = tf.nn.dropout(relu, self.dropout_keep_prob)
             
         with tf.variable_scope('fc-dropout-6'):
-            #h_pool_flat = tf.reshape(h, [-1, sequence_length*num_filters])
             W = tf.get_variable('W', shape=[len(filter_sizes)*num_filters, len(filter_sizes)*num_filters],
                                     initializer=initializer,regularizer = regularizer)
             b = tf.get_variable('b', [len(filter_sizes)*num_filters], initializer=tf.constant_initializer(1.0))
+            fc =  tf.nn.xw_plus_b(self.fc5, W, b, name='fc6')
             if fc_layer_norm:
-                h_drop = tf.contrib.layers.batch_norm(self.fc5,center=True, scale=True,is_training=self.is_training)
-            else: 
-                h_drop = self.fc5
-            h_drop = tf.nn.dropout(h_drop, self.dropout_keep_prob)
-            
-            self.fc6 =tf.nn.relu( tf.nn.xw_plus_b(h_drop, W, b, name='relu'))
+                fc = tf.contrib.layers.batch_norm(fc,center=True, scale=True,is_training=self.is_training)                
+            relu =tf.nn.relu(fc)
+            self.fc6 =tf.nn.dropout(relu, self.dropout_keep_prob)
             
         with tf.variable_scope('fc-dropout-7'):            
-            #h_pool_flat = tf.reshape(h, [-1,sequence_length*num_filters])
-            if fc_layer_norm:
-                h_drop = tf.contrib.layers.batch_norm(self.fc6,center=True, scale=True,is_training=self.is_training)
-            else:
-                h_drop = self.fc6
-            h_drop = tf.nn.dropout(h_drop, self.dropout_keep_prob)     
             W = tf.get_variable('W', shape=[len(filter_sizes)*num_filters, num_classes],
                                     initializer=initializer,regularizer = regularizer)
             b = tf.get_variable('b', [num_classes], initializer=tf.constant_initializer(1.0))
-            self.scores = tf.nn.xw_plus_b(h_drop, W, b, name='scores')
+            self.scores = tf.nn.xw_plus_b(self.fc6, W, b, name='fc7')
             self.predictions = tf.argmax(self.scores, 1, name='predictions')
                 
         # Calculate mean cross-entropy loss
