@@ -111,7 +111,7 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
         x_raw = df[selected[2]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
         if enable_keywords:
-            target_raw = df['merged'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+            target_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
         else:
             target_raw = df['merged'].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
             
@@ -154,7 +154,7 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
         x_raw = df['temp'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
         if enable_keywords:
-            target_raw = df['merged'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+            target_raw = df['temp'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
         else:
             target_raw = df['merged'].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
                    
