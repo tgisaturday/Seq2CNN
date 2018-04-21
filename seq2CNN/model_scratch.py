@@ -57,7 +57,8 @@ class seq2CNN(object):
             self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)
             if temp_norm:
                 bn = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
-                self.cnn_input = tf.nn.relu(bn, name='relu')                
+                self.cnn_input = bn
+                #self.cnn_input = tf.nn.relu(bn, name='relu')                
             else:
                 self.cnn_input = self.decoder_output_expanded
             self.cnn_input = self.decoder_output_expanded    
@@ -127,8 +128,9 @@ class seq2CNN(object):
             cnn_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores)
             masks = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
             seq_loss = tf.contrib.seq2seq.sequence_loss(training_logits[0].rnn_output,self.targets,masks)
-            self.loss = tf.reduce_mean(cnn_loss) + tf.reduce_sum(regularization_losses)
+            self.loss = tf.reduce_mean(cnn_loss) + seq_loss + tf.reduce_sum(regularization_losses)
             self.seq_loss = seq_loss
+            self.cnn_loss = f.reduce_mean(cnn_loss)+ tf.reduce_sum(regularization_losses)
         # Accuracy
         with tf.name_scope('accuracy'):
             correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))

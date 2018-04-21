@@ -205,14 +205,16 @@ def train_cnn(dataset_name):
             optimizer = tf.train.AdamOptimizer(learning_rate,epsilon)
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
-            cnn_gradients, cnn_variables = zip(*optimizer.compute_gradients(cnn.loss))
-            seq_gradients, seq_variables = zip(*optimizer.compute_gradients(cnn.seq_loss))
-
-            cnn_gradients, _ = tf.clip_by_global_norm(cnn_gradients, 7.0)
-            seq_gradients, _ = tf.clip_by_global_norm(seq_gradients, 7.0)
+            gradients, variables = zip(*optimizer.compute_gradients(cnn.loss))
+            #seq_gradients, seq_variables = zip(*optimizer.compute_gradients(cnn.seq_loss))
+            #cnn_gradients, cnn_variables = zip(*optimizer.compute_gradients(cnn.cnn_loss))
+            gradients, _ = tf.clip_by_global_norm(cnn_gradients, 7.0)
+            #seq_gradients, _ = tf.clip_by_global_norm(seq_gradients, 7.0)
+            #cnn_gradients, _ = tf.clip_by_global_norm(cnn_gradients, 7.0)
             with tf.control_dependencies(update_ops):
-                train_op = optimizer.apply_gradients(zip(cnn_gradients, cnn_variables), global_step=global_step)
-                seq_train_op = optimizer.apply_gradients(zip(seq_gradients, seq_variables), global_step=global_step)
+                train_op = optimizer.apply_gradients(zip(gradients, variables), global_step=global_step)
+                #seq_train_op = optimizer.apply_gradients(zip(seq_gradients, seq_variables), global_step=global_step)
+                #cnn_train_op = optimizer.apply_gradients(zip(cnn_gradients, cnn_variables), global_step=global_step)
 
             timestamp = str(int(time.time()))
             out_dir = os.path.abspath(os.path.join(os.path.curdir, "result_" + timestamp))
@@ -246,8 +248,8 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
-                _, logits, step, loss,seq_loss, acc = sess.run([seq_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.accuracy], feed_dict)
-                return loss, seq_loss, acc
+                _, logits, step, loss,seq_loss,cnn_loss, acc = sess.run([seq_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss,cnn.cnn_loss, cnn.accuracy], feed_dict)
+                return loss, seq_loss, cnn_loss, acc
 
             # One evaluation step: evaluate the model with one batch
             def dev_step(x_batch, y_batch,target_batch, t_batch,s_batch):
@@ -280,11 +282,11 @@ def train_cnn(dataset_name):
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 current_step = tf.train.global_step(sess, global_step)
-                train_loss, train_seq_loss, train_acc,examples, = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
-                train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
+                train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
+                #train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""
                 if current_step % params['evaluate_every'] == 0:
-                    logging.critical('step: {} accuracy: {} cnn_loss: {} seq_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss))
+                    logging.critical('step: {} accuracy: {} loss: {} seq_loss: {} cnn_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss,train_cnn_loss))
                     pad = vocab_to_int['PAD']
                     result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
                     logging.info('{}'.format(result))
