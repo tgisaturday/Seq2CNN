@@ -6,7 +6,7 @@ import logging
 import data_helper
 import numpy as np
 import tensorflow as tf
-from model_scratch import seq2CNN
+from model_embedded import seq2CNN
 from tensorflow.contrib import learn
 from sklearn.model_selection import train_test_split
 
@@ -94,16 +94,39 @@ def train_cnn(dataset_name):
             
     logging.info("Size of Vocabulary: {}".format(len(word_counts)))
 
-    """Step 1: pad each sentence to the same length and map each word to an id"""
+    # Load Conceptnet Numberbatch's (CN) embeddings, similar to GloVe, but probably better 
+    # (https://github.com/commonsense/conceptnet-numberbatch)
+    embeddings_index = {}
+    with open('../dataset/embeddings/numberbatch-en.txt', encoding='utf-8') as f:
+        for line in f:
+            values = line.split(' ')
+            word = values[0]
+            embedding = np.asarray(values[1:], dtype='float32')
+            embeddings_index[word] = embedding
     max_document_length = max([len(x.split(' ')) for x in x_raw])
-    min_document_length = min([len(x.split(' ')) for x in x_raw])
-    logging.info('The maximum length of all sentences: {}'.format(max_document_length))
-    logging.info('The minimum length of all sentences: {}'.format(min_document_length))
-    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length,
-                                                              min_frequency=params['min_frequency'])
-    vocab_processor.fit_transform(x_raw)
-    vocab_to_int = vocab_processor.vocabulary_._mapping
     
+    # Find the number of words that are missing from CN, and are used more than our threshold.
+    missing_words = 0
+    threshold = params['min_frequency']
+
+    for word, count in word_counts.items():
+        if count > threshold:
+            if word not in embeddings_index:
+                missing_words += 1
+            
+    missing_ratio = round(missing_words/len(word_counts),4)*100
+            
+    logging.info("Number of words missing from CN: {}".format(missing_words))
+    logging.info("Percent of words that are missing from vocabulary: {0:.2f}%".format(missing_ratio))
+
+    #dictionary to convert words to integers
+    """Step 1: pad each sentence to the same length and map each word to an id"""
+    value = 0
+    vocab_to_int={}
+    for word, count in word_counts.items():
+        if count >= threshold:
+            vocab_to_int[word] = value
+            value += 1
     # Special tokens that will be added to our vocab
     codes = ["UNK","PAD","EOS","GO"]   
 
@@ -121,10 +144,30 @@ def train_cnn(dataset_name):
     logging.info("Number of words we will use: {}".format(len(vocab_to_int)))
     logging.info("Percent of words we will use: {0:.2f}%".format(usage_ratio))
     
+    # Need to use 300 for embedding dimensions to match CN's vectors.
+    embedding_dim = 300
+    nb_words = len(vocab_to_int)
+    logging.info("Size of vocab_to_int: {}".format(len(vocab_to_int)))
+    # Create matrix with default values of zero
+    word_embedding_matrix = np.zeros((nb_words, embedding_dim), dtype=np.float32)
+    for word, i in vocab_to_int.items():
+        if word in embeddings_index:
+            word_embedding_matrix[i] = embeddings_index[word]
+        else:
+            # If word not in CN, create a random embedding for it
+            new_embedding = np.array(np.random.uniform(-1.0, 1.0, embedding_dim))
+            embeddings_index[word] = new_embedding
+            word_embedding_matrix[i] = new_embedding
+
+    # Check if value matches len(vocab_to_int)
+    logging.info("Size of word embedding matrix: {}".format(len(word_embedding_matrix)))
 
     # Apply convert_to_ints to clean_summaries and clean_texts
     word_count = 0
     unk_count = 0
+    logging.info("text_example: {}".format(x_raw[0]))
+    logging.info("helper_example: {}".format(target_raw[0]))
+
     int_summaries, word_count, unk_count = convert_to_ints(target_raw,vocab_to_int, word_count, unk_count)
     int_texts, word_count, unk_count = convert_to_ints(x_raw,vocab_to_int, word_count, unk_count, eos=True)
     int_test_summaries, word_count, unk_count = convert_to_ints(target_test_raw,vocab_to_int, word_count, unk_count)
@@ -136,7 +179,6 @@ def train_cnn(dataset_name):
     logging.info("Percent of words that are UNK: {0:.2f}%".format(unk_percent))
     
     """Step 1: pad each sentence to the same length and map each word to an id"""
-
     x_int = pad_sentence_batch(vocab_to_int,int_texts)
     target_int = pad_sentence_batch(vocab_to_int,int_summaries)
     x_test_int = pad_sentence_batch(vocab_to_int,int_test_texts)
@@ -153,8 +195,9 @@ def train_cnn(dataset_name):
     s = np.array(list(params['max_summary_length'] for x in x_int))
     s_test = np.array(list(params['max_summary_length'] for x in x_test_int))
 
+
     
-    #"""Step 2: split the original dataset into train and test sets"""
+    """Step 2: split the original dataset into train and test sets"""
     #x_, x_test, y_, y_test,target_, target_test, t_,t_test,s_,s_test = train_test_split(x, y,target, t, s, test_size=0.1, random_state=42)
 
     """Step 3: shuffle the train set and split the train set into train and dev sets"""
@@ -165,7 +208,6 @@ def train_cnn(dataset_name):
     t_shuffled = t[shuffle_indices]
     s_shuffled = s[shuffle_indices]
     x_train, x_dev, y_train, y_dev,target_train, target_dev, t_train, t_dev,s_train, s_dev = train_test_split(x_shuffled, y_shuffled,target_shuffled, t_shuffled,s_shuffled, test_size=0.1)
-
     """Step 4: save the labels into labels.json since predict.py needs it"""
     with open('./labels.json', 'w') as outfile:
         json.dump(labels, outfile, indent=4)
@@ -175,7 +217,6 @@ def train_cnn(dataset_name):
     logging.info('target_train: {}, target_dev: {}, target_test: {}'.format(len(target_train), len(target_dev), len(target_test)))
     logging.info('t_train: {}, t_dev: {}, t_test: {}'.format(len(t_train), len(t_dev), len(t_test)))
     logging.info('s_train: {}, s_dev: {}, s_test: {}'.format(len(s_train), len(s_dev), len(s_test)))
-
     """Step 5: build a graph and cnn object"""
     graph = tf.Graph()
     with graph.as_default():
@@ -183,6 +224,7 @@ def train_cnn(dataset_name):
         sess = tf.Session(config=session_conf)
         with sess.as_default():
             cnn = seq2CNN(
+                embeddings=word_embedding_matrix,
                 num_classes=y_train.shape[1],
                 filter_sizes=filter_sizes,
                 max_summary_length=params['max_summary_length'],
@@ -191,7 +233,7 @@ def train_cnn(dataset_name):
                 vocab_to_int = vocab_to_int,
                 num_filters=params['num_filters'],
                 vocab_size=len(vocab_to_int),
-                embedding_size=params['embedding_dim'],
+                embedding_size=300,
                 rnn_layer_norm=rnn_layer_norm,
                 fc_layer_norm=fc_layer_norm,
                 temp_norm=temp_norm,
@@ -207,7 +249,6 @@ def train_cnn(dataset_name):
 
             cnn_gradients, cnn_variables = zip(*optimizer.compute_gradients(cnn.loss))
             seq_gradients, seq_variables = zip(*optimizer.compute_gradients(cnn.seq_loss))
-
             cnn_gradients, _ = tf.clip_by_global_norm(cnn_gradients, 7.0)
             seq_gradients, _ = tf.clip_by_global_norm(seq_gradients, 7.0)
             with tf.control_dependencies(update_ops):
@@ -268,7 +309,7 @@ def train_cnn(dataset_name):
                 return num_correct
 
             # Save the word_to_id map since predict.py needs it
-            vocab_processor.save(os.path.join(out_dir, "vocab.pickle"))
+            #vocab_processor.save(os.path.join(out_dir, "vocab.pickle"))
             sess.run(tf.global_variables_initializer())
 
             # Training starts here
@@ -281,7 +322,9 @@ def train_cnn(dataset_name):
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 current_step = tf.train.global_step(sess, global_step)
                 train_loss, train_seq_loss, train_acc,examples, = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
-                train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
+                flag=0
+                if current_step < num_batches_per_epoch*params['helper_support_margin']:
+                    train_loss, train_seq_loss, train_acc = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""
                 if current_step % params['evaluate_every'] == 0:
                     logging.critical('step: {} accuracy: {} cnn_loss: {} seq_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss))

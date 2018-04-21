@@ -7,7 +7,7 @@ initializer = tf.contrib.layers.xavier_initializer()
 regularizer = tf.contrib.layers.l2_regularizer(1e-3)
 
 class seq2CNN(object):  
-    def __init__(self,num_classes,filter_sizes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size,rnn_layer_norm=False,fc_layer_norm=False,temp_norm=False,use_gru=False):
+    def __init__(self,embeddings,num_classes,filter_sizes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size,rnn_layer_norm=False,fc_layer_norm=False,temp_norm=False,use_gru=False):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
@@ -18,11 +18,9 @@ class seq2CNN(object):
         self.summary_length = tf.placeholder(tf.int32, (None,), name='summary_length')
         self.is_training = tf.placeholder(tf.bool, name='is_training')
         
-        
         with tf.device('/cpu:0'),tf.name_scope('embedding'):
-            embeddings = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='W')
             enc_embed_input = tf.nn.embedding_lookup(embeddings, self.input_x)
-            embedding_size = embedding_size
+            embedding_size = embedding_size        
 
         #seq2seq layers
         with tf.name_scope('seq2seq'):
@@ -55,11 +53,10 @@ class seq2CNN(object):
         with tf.name_scope('textCNN'):
             self.decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
             self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)
-            if temp_norm:
-                bn = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
-                self.cnn_input = tf.nn.relu(bn, name='relu')                
-            else:
-                self.cnn_input = self.decoder_output_expanded
+            #if temp_norm:
+                #self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
+            #else:
+                #self.cnn_input = self.decoder_output_expanded
             self.cnn_input = self.decoder_output_expanded    
         self.pooled_outputs = []
         for i, filter_size in enumerate(filter_sizes):
@@ -105,6 +102,7 @@ class seq2CNN(object):
             self.fc5 = tf.nn.dropout(relu, self.dropout_keep_prob)
             
         with tf.variable_scope('fc-dropout-6'):
+            #h_pool_flat = tf.reshape(h, [-1, sequence_length*num_filters])
             W = tf.get_variable('W', shape=[len(filter_sizes)*num_filters, len(filter_sizes)*num_filters],
                                     initializer=initializer,regularizer = regularizer)
             b = tf.get_variable('b', [len(filter_sizes)*num_filters], initializer=tf.constant_initializer(1.0))
@@ -125,9 +123,9 @@ class seq2CNN(object):
         with tf.name_scope('loss'):            
             regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
             cnn_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores)
+            self.loss = tf.reduce_mean(cnn_loss)+tf.reduce_sum(regularization_losses)
             masks = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
             seq_loss = tf.contrib.seq2seq.sequence_loss(training_logits[0].rnn_output,self.targets,masks)
-            self.loss = tf.reduce_mean(cnn_loss) + tf.reduce_sum(regularization_losses)
             self.seq_loss = seq_loss
         # Accuracy
         with tf.name_scope('accuracy'):
@@ -235,9 +233,48 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
                                                   initial_state,
                                                   output_layer,
                                                   vocab_size, 
-                                                 max_summary_length,
+                                                  max_summary_length,
                                                   batch_size)  
 
     return training_logits
 
-
+def get_batches(summaries, texts, batch_size):
+    """Batch summaries, texts, and the lengths of their sentences together"""
+    for batch_i in range(0, len(texts)//batch_size):
+        start_i = batch_i * batch_size
+        summaries_batch = summaries[start_i:start_i + batch_size]
+        texts_batch = texts[start_i:start_i + batch_size]
+        pad_summaries_batch = np.array(pad_sentence_batch(summaries_batch))
+        pad_texts_batch = np.array(pad_sentence_batch(texts_batch))
+        
+        # Need the lengths for the _lengths parameters
+        pad_summaries_lengths = []
+        for summary in pad_summaries_batch:
+            pad_summaries_lengths.append(len(summary))
+        
+        pad_texts_lengths = []
+        for text in pad_texts_batch:
+            pad_texts_lengths.append(len(text))
+        
+        yield pad_summaries_batch, pad_texts_batch, pad_summaries_lengths, pad_texts_lengths
+        
+def inference_decoding_layer(embeddings, start_token, end_token, dec_cell, initial_state, output_layer, max_summary_length, batch_size):
+    '''Create the inference logits'''
+    
+    start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
+    
+    inference_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,
+                                                                start_tokens,
+                                                                end_token)
+                
+    inference_decoder, _, _  = tf.contrib.seq2seq.BasicDecoder(dec_cell,
+                                                        inference_helper,
+                                                        initial_state,
+                                                        output_layer)
+                
+    inference_logits, _, _ = tf.contrib.seq2seq.dynamic_decode(inference_decoder,
+                                                            output_time_major=False,
+                                                            impute_finished=True,
+                                                            maximum_iterations=max_summary_length)
+    
+    return inference_logits
