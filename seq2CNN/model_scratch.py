@@ -4,6 +4,8 @@ from tensorflow.python.layers.core import Dense
 from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
 
 initializer = tf.contrib.layers.xavier_initializer()
+he_normal = tf.keras.initializers.he_normal()
+rand_uniform = tf.random_uniform_initializer(-1,1,seed=2)
 regularizer = tf.contrib.layers.l2_regularizer(1e-3)
 
 class seq2CNN(object):  
@@ -20,7 +22,7 @@ class seq2CNN(object):
         
         
         with tf.device('/cpu:0'),tf.name_scope('embedding'):
-            embeddings = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name='W')
+            embeddings = tf.get_variable(name='embedding_W', shape=[vocab_size, embedding_size],initializer=rand_uniform)
             enc_embed_input = tf.nn.embedding_lookup(embeddings, self.input_x)
             embedding_size = embedding_size
 
@@ -80,7 +82,7 @@ class seq2CNN(object):
                                         padding='SAME', name='pool')
                     
                 filter_shape = [3, 1, num_filters, num_filters]
-                W_2 = tf.get_variable(name='W_2', shape=filter_shape,initializer=initializer,regularizer=regularizer)
+                W_2 = tf.get_variable(name='W_2', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
                 conv = tf.nn.conv2d(pooled, W_2, strides=[1, 1, 1, 1], padding='SAME', name='conv')
                 if temp_norm:
                     h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
@@ -97,7 +99,7 @@ class seq2CNN(object):
             h_pool = tf.concat(self.pooled_outputs, 3)
             h_pool_flat = tf.reshape(h_pool, [-1, len(filter_sizes)*embedding_size*max_summary_length*num_filters])
             W = tf.get_variable('W', shape=[len(filter_sizes)*max_summary_length*embedding_size*num_filters, len(filter_sizes)*num_filters],
-                                    initializer=initializer,regularizer = regularizer)
+                                    initializer=he_normal,regularizer = regularizer)
             b = tf.get_variable('b', [len(filter_sizes)*num_filters], initializer=tf.constant_initializer(1.0))
             fc =  tf.nn.xw_plus_b(h_pool_flat, W, b, name='fc5')
             if fc_layer_norm:
@@ -107,7 +109,7 @@ class seq2CNN(object):
             
         with tf.variable_scope('fc-dropout-6'):
             W = tf.get_variable('W', shape=[len(filter_sizes)*num_filters, len(filter_sizes)*num_filters],
-                                    initializer=initializer,regularizer = regularizer)
+                                    initializer=he_normal,regularizer = regularizer)
             b = tf.get_variable('b', [len(filter_sizes)*num_filters], initializer=tf.constant_initializer(1.0))
             fc =  tf.nn.xw_plus_b(self.fc5, W, b, name='fc6')
             if fc_layer_norm:
