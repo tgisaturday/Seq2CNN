@@ -2,7 +2,7 @@
     "num_epochs": 20,
     "batch_size": 128,
     "filter_sizes": "3,4,5",
-    "learning_rate": 0.001,
+    "learning_rate": 0.01,
     "epsilon": 0.1,
     "min_frequency": 1,
     "max_length": 300,
@@ -16,10 +16,10 @@
     "enable_max_len": 0,
     "summary_using_keywords": 1,
     "rnn_layer_norm": 1,
-    "fc_layer_norm": 0,
+    "fc_layer_norm": 1,
     "temp_norm": 1,
     "use_gru": 1,
     "watch_rnn_output": 0,
     "independent_train": 1,
-    "seq_ratio": 0.3
+    "seq_ratio": 1.0
 }
