@@ -7,7 +7,7 @@ initializer = tf.contrib.layers.xavier_initializer()
 regularizer = tf.contrib.layers.l2_regularizer(1e-3)
 
 class seq2CNN(object):  
-    def __init__(self,num_classes,filter_sizes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size,rnn_layer_norm=False,fc_layer_norm=False,temp_norm=False,use_gru=False):
+    def __init__(self,num_classes,filter_sizes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size, seq_ratio, rnn_layer_norm=False,fc_layer_norm=False,temp_norm=False,use_gru=False):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
@@ -128,9 +128,9 @@ class seq2CNN(object):
             cnn_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores)
             masks = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
             seq_loss = tf.contrib.seq2seq.sequence_loss(training_logits[0].rnn_output,self.targets,masks)
-            self.loss = tf.reduce_mean(cnn_loss) + seq_loss + tf.reduce_sum(regularization_losses)
+            self.loss = tf.reduce_mean(cnn_loss) + seq_ratio*seq_loss + tf.reduce_sum(regularization_losses)
             self.seq_loss = seq_loss
-            self.cnn_loss = f.reduce_mean(cnn_loss)+ tf.reduce_sum(regularization_losses)
+            self.cnn_loss = tf.reduce_mean(cnn_loss)+ tf.reduce_sum(regularization_losses)
         # Accuracy
         with tf.name_scope('accuracy'):
             correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
