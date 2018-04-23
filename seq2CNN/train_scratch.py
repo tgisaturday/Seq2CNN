@@ -89,7 +89,10 @@ def train_cnn(dataset_name):
         independent_train = True
     else:
         independent_train = False
-        
+    if params['is_simple'] == 1:
+        is_simple = True
+    else:
+        is_simple = False        
     x_raw, y_raw, target_raw, df, labels = data_helper.load_data_and_labels(dataset,dataset_name,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
     x_test_raw, y_test_raw, target_test_raw, df_test, labels_test = data_helper.load_data_and_labels(testset,dataset_name,params['max_length'],params['max_summary_length'],enable_max,enable_keywords)
     word_counts = {}
@@ -196,15 +199,13 @@ def train_cnn(dataset_name):
                 num_filters=params['num_filters'],
                 vocab_size=len(vocab_to_int),
                 embedding_size=params['embedding_dim'],
-                seq_ratio=params['seq_ratio'],
-                rnn_layer_norm=rnn_layer_norm,
-                fc_layer_norm=fc_layer_norm,
-                temp_norm=temp_norm,
-                use_gru=use_gru
+                seq_ratio=params['seq_ratio']
                 )
             global_step = tf.Variable(0, name="global_step", trainable=False)            
             num_batches_per_epoch = int((len(x_train)-1)/params['batch_size']) + 1
             epsilon=params['epsilon']
+            #learning_rate = params['learning_rate']
+            #dev_plateau = 0
             learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
             #learning_rate = params['learning_rate']
             optimizer = tf.train.AdamOptimizer(learning_rate,epsilon)
@@ -267,7 +268,7 @@ def train_cnn(dataset_name):
                     cnn.is_training: True}
                 _, logits, step, loss,seq_loss,cnn_loss, acc = sess.run([cnn_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss,cnn.cnn_loss,cnn.accuracy], feed_dict)
                 return loss, seq_loss, cnn_loss, acc, logits
-
+            
             # One evaluation step: evaluate the model with one batch
             def dev_step(x_batch, y_batch,target_batch, t_batch,s_batch):
                 feed_dict = {
@@ -284,6 +285,7 @@ def train_cnn(dataset_name):
                     pad = vocab_to_int['PAD']
                     result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
                     logging.info('{}'.format(result))
+                 
                 return num_correct
 
             # Save the word_to_id map since predict.py needs it
@@ -299,7 +301,7 @@ def train_cnn(dataset_name):
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 current_step = tf.train.global_step(sess, global_step)
-                if independent_train:
+                if independent_train==True:
                     train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                     train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = cnn_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
                 else:
@@ -327,6 +329,12 @@ def train_cnn(dataset_name):
                         path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                         logging.critical('Saved model at {} at step {}'.format(path, best_at_step))
                         logging.critical('Best accuracy is {} at step {}'.format(best_accuracy, best_at_step))
+                        dev_plateau = 0
+                    #elif dev_accuracy > params['decay_start_acc']:
+                        #if dev_plateau > 1 :
+                            #learning_rate *= 0.1
+                        #else:
+                            #dev_plateau += 1
 
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_test,t_test,s_test)), params['batch_size'], 1)

@@ -39,10 +39,38 @@ class TextCNN(object):
                 # Maxpooling over the outputs
                 pooled = tf.nn.max_pool(h, ksize=[1, sequence_length, 1, 1], strides=[1, 1, 1, 1],
                                         padding='SAME', name='pool')
-                    
-                filter_shape = [3, 1, num_filters, num_filters]
-                W_2 = tf.get_variable(name='W_2', shape=filter_shape,initializer=initializer,regularizer=regularizer)
-                conv = tf.nn.conv2d(pooled, W_2, strides=[1, 1, 1, 1], padding='SAME', name='conv')
+                #64    
+                filter_shape = [3, 1, num_filters, num_filters*2]
+                W_2_1 = tf.get_variable(name='W_2_1', shape=filter_shape,initializer=initializer,regularizer=regularizer)
+                conv = tf.nn.conv2d(pooled, W_2_1, strides=[1, 1, 1, 1], padding='SAME', name='conv')
+                if temp_norm:
+                    h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+                    h = tf.nn.relu(h, name='relu')
+                else:
+                    h = tf.nn.relu(conv, name='relu')
+                filter_shape = [3, 1, num_filters*2, num_filters*2]
+                W_2_2 = tf.get_variable(name='W_2_2', shape=filter_shape,initializer=initializer,regularizer=regularizer)
+                conv = tf.nn.conv2d(h, W_2_2, strides=[1, 1, 1, 1], padding='SAME', name='conv')
+                if temp_norm:
+                    h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+                    h = tf.nn.relu(h, name='relu')
+                else:
+                    h = tf.nn.relu(conv, name='relu')
+                # Maxpooling over the outputs                        
+                pooled = tf.nn.max_pool(h, ksize=[1, 1 , 1, 1], strides=[1, 1, 1, 1],
+                                        padding='SAME', name='pool') 
+                #128
+                filter_shape = [3, 1, num_filters*2, num_filters*4]
+                W_3_1 = tf.get_variable(name='W_3_1', shape=filter_shape,initializer=initializer,regularizer=regularizer)
+                conv = tf.nn.conv2d(pooled, W_3_1, strides=[1, 1, 1, 1], padding='SAME', name='conv')
+                if temp_norm:
+                    h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+                    h = tf.nn.relu(h, name='relu')
+                else:
+                    h = tf.nn.relu(conv, name='relu')
+                filter_shape = [3, 1, num_filters*4, num_filters*4]
+                W_3_2 = tf.get_variable(name='W_3_2', shape=filter_shape,initializer=initializer,regularizer=regularizer)
+                conv = tf.nn.conv2d(h, W_3_2, strides=[1, 1, 1, 1], padding='SAME', name='conv')
                 if temp_norm:
                     h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
                     h = tf.nn.relu(h, name='relu')
@@ -54,35 +82,21 @@ class TextCNN(object):
                     
                 self.pooled_outputs.append(pooled)
         # Combine all the pooled features
-        with tf.variable_scope('fc-dropout-5'):
-            h_pool = tf.concat(self.pooled_outputs, 3)
-            h_pool_flat = tf.reshape(h_pool, [-1, len(filter_sizes)*embedding_size*sequence_length*num_filters])
-            W = tf.get_variable('W', shape=[len(filter_sizes)*sequence_length*embedding_size*num_filters, len(filter_sizes)*num_filters],
-                                    initializer=initializer,regularizer = regularizer)
-            b = tf.get_variable('b', [len(filter_sizes)*num_filters], initializer=tf.constant_initializer(1.0))
-            fc =  tf.nn.xw_plus_b(h_pool_flat, W, b, name='fc5')
-            if fc_layer_norm:
-                fc = tf.contrib.layers.batch_norm(fc,center=True, scale=True,is_training=self.is_training)                
-            relu =tf.nn.relu(fc)
-            self.fc5 = tf.nn.dropout(relu, self.dropout_keep_prob)
+        with tf.variable_scope('average_pooling'):
+            h_pool = tf.concat(self.pooled_outputs, 3)           
+            h_pool_avg = tf.layers.average_pooling2d(h_pool,
+                                                      pool_size=[sequence_length,embedding_size],
+                                                      strides=[1,1],
+                                                      padding='VALID',
+                                                      name='global_average_pool')
+            h_pool_flat = tf.reshape(h_pool_avg, [-1, len(filter_sizes)*num_filters*4])
             
-        with tf.variable_scope('fc-dropout-6'):
-            W = tf.get_variable('W', shape=[len(filter_sizes)*num_filters, len(filter_sizes)*num_filters],
-                                    initializer=initializer,regularizer = regularizer)
-            b = tf.get_variable('b', [len(filter_sizes)*num_filters], initializer=tf.constant_initializer(1.0))
-            fc =  tf.nn.xw_plus_b(self.fc5, W, b, name='fc6')
-            if fc_layer_norm:
-                fc = tf.contrib.layers.batch_norm(fc,center=True, scale=True,is_training=self.is_training)                
-            relu =tf.nn.relu(fc)
-            self.fc6 =tf.nn.dropout(relu, self.dropout_keep_prob)
-            
-        with tf.variable_scope('fc-dropout-7'):            
-            W = tf.get_variable('W', shape=[len(filter_sizes)*num_filters, num_classes],
+        with tf.variable_scope('outputs'):            
+            W = tf.get_variable('W', shape=[len(filter_sizes)*num_filters*4, num_classes],
                                     initializer=initializer,regularizer = regularizer)
             b = tf.get_variable('b', [num_classes], initializer=tf.constant_initializer(1.0))
-            self.scores = tf.nn.xw_plus_b(self.fc6, W, b, name='fc7')
+            self.scores = tf.nn.xw_plus_b(h_pool_flat, W, b, name='scores')
             self.predictions = tf.argmax(self.scores, 1, name='predictions')
-                
         # Calculate mean cross-entropy loss
         with tf.name_scope('loss'):
             
