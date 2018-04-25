@@ -56,8 +56,6 @@ class seq2CNN(object):
             self.decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
             self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)
 
-            #bn = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
-            #self.cnn_input = bn
             self.cnn_input = self.decoder_output_expanded
             
             self.pooled_outputs = []

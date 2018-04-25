@@ -46,11 +46,11 @@ def clean_str(text,max_length):
     
     text = empty_remover(text)
 
-    if len(text) >= max_length:
-        text = text[0:max_length]
-    elif len(text) < max_length:
-        text = text + ["PAD"] * (max_length - len(text))
-        text = text[0:max_length]
+    #if len(text) >= max_length:
+        #text = text[0:max_length]
+    #elif len(text) < max_length:
+        #text = text + ["PAD"] * (max_length - len(text))
+        #text = text[0:max_length]
         
     return ' '.join(text).strip()
 
@@ -82,11 +82,11 @@ def gen_summary(text,max_length):
     text = [w for w in text if not w in stops]
     text = ['GO']+text
     text = empty_remover(text)
-    if len(text) >= max_length:
-        text = text[0:max_length]
-    else:
-        text = text + ["PAD"] * (max_length - len(text))
-        text = text[0:max_length]
+    #if len(text) >= max_length:
+        #text = text[0:max_length]
+    #else:
+        #text = text + ["PAD"] * (max_length - len(text))
+        #text = text[0:max_length]
     return ' '.join(text)
 
 def load_data_and_labels(filename,max_length):

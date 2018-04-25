@@ -331,7 +331,7 @@ def train_cnn(dataset_name):
                         logging.critical('Best accuracy is {} at step {}'.format(best_accuracy, best_at_step))
                         dev_plateau = 0
                     #elif dev_accuracy > params['decay_start_acc']:
-                        #if dev_plateau > 1 :
+                        #if dev_plateau > 10 :
                             #learning_rate *= 0.1
                         #else:
                             #dev_plateau += 1

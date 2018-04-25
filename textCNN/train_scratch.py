@@ -60,7 +60,7 @@ def train_cnn(dataset_name):
 
             global_step = tf.Variable(0, name="global_step", trainable=False)
             num_batches_per_epoch = int((len(x_train)-1)/params['batch_size']) + 1
-            learning_rate = tf.train.exponential_decay(0.001, global_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
+            learning_rate = tf.train.exponential_decay(0.0001, global_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
             #learning_rate = params['learning_rate']
             optimizer = tf.train.AdamOptimizer(learning_rate)
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
