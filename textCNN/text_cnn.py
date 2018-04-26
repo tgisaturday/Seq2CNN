@@ -139,18 +139,18 @@ class TextCNN(object):
         with tf.variable_scope('fc-dropout-6'):
             h_pool = pooled
             h_pool_flat = tf.reshape(h_pool, [-1, h_pool.get_shape()[2]*512])
-            W_fc6 = tf.get_variable('W_fc6', shape=[h_pool.get_shape()[2]*512, 64],
+            W_fc6 = tf.get_variable('W_fc6', shape=[h_pool.get_shape()[2]*512, 512],
                                 initializer=he_normal,regularizer = regularizer)
-            b_fc6 = tf.get_variable('b_fc6', [64], initializer=tf.constant_initializer(0.1))
+            b_fc6 = tf.get_variable('b_fc6', [512], initializer=tf.constant_initializer(0.1))
             fc6 =  tf.nn.xw_plus_b(h_pool_flat, W_fc6, b_fc6, name='fc6') 
             #fc6 = tf.contrib.layers.batch_norm(fc6,center=True, scale=True,is_training=self.is_training)                
             relu_fc6 =tf.nn.relu(fc6)
             self.fc6 = tf.nn.dropout(relu_fc6, self.dropout_keep_prob)
         
         with tf.variable_scope('fc-dropout-7'):
-            W_fc7 = tf.get_variable('W_fc7', shape=[64, 64],
+            W_fc7 = tf.get_variable('W_fc7', shape=[512, 512],
                                 initializer=he_normal,regularizer = regularizer)
-            b_fc7 = tf.get_variable('b_fc7', [64], initializer=tf.constant_initializer(0.1))
+            b_fc7 = tf.get_variable('b_fc7', [512], initializer=tf.constant_initializer(0.1))
             fc7 =  tf.nn.xw_plus_b(self.fc6, W_fc7, b_fc7, name='fc7')
 
             #fc7 = tf.contrib.layers.batch_norm(fc7,center=True, scale=True,is_training=self.is_training)                
@@ -158,7 +158,7 @@ class TextCNN(object):
             self.fc7 =tf.nn.dropout(relu_fc7, self.dropout_keep_prob)
         
         with tf.variable_scope('fc-dropout-8'):            
-            W_fc8 = tf.get_variable('W_fc8', shape=[64, num_classes],
+            W_fc8 = tf.get_variable('W_fc8', shape=[512, num_classes],
                                     initializer=initializer,regularizer = regularizer)
             b_fc8 = tf.get_variable('b_fc8', [num_classes], initializer=tf.constant_initializer(0.1))
             self.scores = tf.nn.xw_plus_b(self.fc7, W_fc8, b_fc8, name='fc8')
