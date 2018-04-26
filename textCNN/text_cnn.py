@@ -6,7 +6,7 @@ rand_uniform = tf.random_uniform_initializer(-1,1,seed=2)
 regularizer = tf.contrib.layers.l2_regularizer(1e-3)
 class TextCNN(object):
     def __init__(self,sequence_length, num_classes, vocab_size, embedding_size, filter_sizes, num_filters,
-                 l2_reg_lambda=0.0,fc_layer_norm=False,temp_norm=True):
+                 fc_layer_norm=False,temp_norm=True):
         # Placeholders for input, output and dropout
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name='input_x')
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')
@@ -21,107 +21,148 @@ class TextCNN(object):
             self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
 
         # Create a convolution + maxpool layer for each filter size
-        self.pooled_outputs=[]
-        with tf.variable_scope('conv-maxpool'):
-            # Convolution Layer
-            filter_shape = [3, embedding_size, 1, 32]
-            W = tf.get_variable(name='W', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-            conv = tf.nn.conv2d(self.embedded_chars_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv')
-            #Apply nonlinearity
+        self.h_outputs=[]
+        for i, filter_size in enumerate(filter_sizes):
+            with tf.variable_scope('conv-maxpool-%s' % filter_size):
+                # Convolution Layer
+                filter_shape = [3, embedding_size, 1, 32]
+                W = tf.get_variable(name='W', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+                conv = tf.nn.conv2d(self.embedded_chars_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv')
+                #Apply nonlinearity
 
-            h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-            h = tf.nn.relu(h, name='relu')
-            #64    
-            filter_shape = [3, 1, 32, 64]
-            W_2_1 = tf.get_variable(name='W_2_1', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-            conv = tf.nn.conv2d(h, W_2_1, strides=[1, 2, 1, 1], padding='SAME', name='conv')
-            
-            h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-            h = tf.nn.relu(h, name='relu')
-
-            filter_shape = [3, 1, 64, 64]
-            W_2_2 = tf.get_variable(name='W_2_2', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-            conv = tf.nn.conv2d(h, W_2_2, strides=[1, 2, 1, 1], padding='SAME', name='conv')
-
-            h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-            h = tf.nn.relu(h, name='relu')
-                      
-            pooled = tf.nn.max_pool(h, ksize=[1, 2 , 1, 1], strides=[1, 2, 1, 1], padding='SAME', name='pool') 
+                h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+                h = tf.nn.relu(h, name='relu')
+                self.h_outputs.append(h)
                 
-            #128
-            filter_shape = [3, 1, 64, 128]
-            W_3_1 = tf.get_variable(name='W_3_1', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-            conv = tf.nn.conv2d(pooled, W_3_1, strides=[1, 2, 1, 1], padding='SAME', name='conv')
-
-            h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-            h = tf.nn.relu(h, name='relu')
-
-            filter_shape = [3, 1, 128, 128]
-            W_3_2 = tf.get_variable(name='W_3_2', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-            conv = tf.nn.conv2d(h, W_3_2, strides=[1, 2, 1, 1], padding='SAME', name='conv')
-
-            h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-            h = tf.nn.relu(h, name='relu')
-
-            # Maxpooling over the outputs                        
-            pooled = tf.nn.max_pool(h, ksize=[1, 2 , 1, 1], strides=[1, 2, 1, 1],padding='SAME', name='pool')
+        h_total = tf.concat(self.h_outputs, 3)        
+        #64    
+        filter_shape = [3, 1, len(filter_sizes)*32, 64]
+        W_2_1 = tf.get_variable(name='W_2_1', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(h_total, W_2_1, strides=[1, 2, 1, 1], padding='SAME', name='conv')
             
-            #256
-            filter_shape = [3, 1, 128, 256]
-            W_4_1 = tf.get_variable(name='W_4_1', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-            conv = tf.nn.conv2d(pooled, W_4_1, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
 
-            h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-            h = tf.nn.relu(h, name='relu')
+        filter_shape = [3, 1, 64, 64]
+        W_2_2 = tf.get_variable(name='W_2_2', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(h, W_2_2, strides=[1, 2, 1, 1], padding='SAME', name='conv')
 
-            filter_shape = [3, 1, 256, 256]
-            W_4_2 = tf.get_variable(name='W_4_2', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-            conv = tf.nn.conv2d(h, W_4_2, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
+                      
+        pooled = tf.nn.max_pool(h, ksize=[1, 2 , 1, 1], strides=[1, 2, 1, 1], padding='SAME', name='pool') 
+                
+        #128
+        filter_shape = [3, 1, 64, 128]
+        W_3_1 = tf.get_variable(name='W_3_1', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(pooled, W_3_1, strides=[1, 2, 1, 1], padding='SAME', name='conv')
 
-            h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-            h = tf.nn.relu(h, name='relu')
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
+
+        filter_shape = [3, 1, 128, 128]
+        W_3_2 = tf.get_variable(name='W_3_2', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(h, W_3_2, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
+
+        # Maxpooling over the outputs                        
+        pooled = tf.nn.max_pool(h, ksize=[1, 2 , 1, 1], strides=[1, 2, 1, 1],padding='SAME', name='pool')
             
-            filter_shape = [3, 1, 256, 256]
-            W_4_3 = tf.get_variable(name='W_4_3', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-            conv = tf.nn.conv2d(h, W_4_3, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+        #256
+        filter_shape = [3, 1, 128, 256]
+        W_4_1 = tf.get_variable(name='W_4_1', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(pooled, W_4_1, strides=[1, 2, 1, 1], padding='SAME', name='conv')
 
-            h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-            h = tf.nn.relu(h, name='relu')
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
 
-            # Maxpooling over the outputs                        
-            pooled = tf.nn.max_pool(h, ksize=[1, 2, 1, 1], strides=[1, 2, 1, 1],padding='SAME', name='pool') 
-           
+        filter_shape = [3, 1, 256, 256]
+        W_4_2 = tf.get_variable(name='W_4_2', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(h, W_4_2, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
             
-            self.pooled_outputs.append(pooled)
+        filter_shape = [3, 1, 256, 256]
+        W_4_3 = tf.get_variable(name='W_4_3', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(h, W_4_3, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
+            
+        filter_shape = [3, 1, 256, 256]
+        W_4_4 = tf.get_variable(name='W_4_4', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(h, W_4_4, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
+
+        # Maxpooling over the outputs                        
+        pooled = tf.nn.max_pool(h, ksize=[1, 2, 1, 1], strides=[1, 2, 1, 1],padding='SAME', name='pool') 
+            
+        #512
+        filter_shape = [3, 1, 256, 512]
+        W_5_1 = tf.get_variable(name='W_5_1', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(pooled, W_5_1, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
+
+        filter_shape = [3, 1, 512, 512]
+        W_5_2 = tf.get_variable(name='W_5_2', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(h, W_5_2, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
+            
+        filter_shape = [3, 1, 512, 512]
+        W_5_3 = tf.get_variable(name='W_5_3', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(h, W_5_3, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
+            
+        filter_shape = [3, 1, 512, 512]
+        W_5_4 = tf.get_variable(name='W_5_4', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        conv = tf.nn.conv2d(h, W_5_4, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+
+        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        h = tf.nn.relu(h, name='relu')
+
+        # Maxpooling over the outputs                        
+        pooled = tf.nn.max_pool(h, ksize=[1, 2, 1, 1], strides=[1, 2, 1, 1],padding='SAME', name='pool')            
+            
+
         # Combine all the pooled features
-            with tf.variable_scope('fc-dropout-5'):
-                h_pool = tf.concat(self.pooled_outputs, 3)
-                h_pool_flat = tf.reshape(h_pool, [-1, h_pool.get_shape()[2]*256])
-                W = tf.get_variable('W', shape=[h_pool.get_shape()[2]*256, 256],
-                                    initializer=he_normal,regularizer = regularizer)
-                b = tf.get_variable('b', [256], initializer=tf.constant_initializer(0.1))
-                fc =  tf.nn.xw_plus_b(h_pool_flat, W, b, name='fc5')
+        with tf.variable_scope('fc-dropout-6'):
+            h_pool = pooled
+            h_pool_flat = tf.reshape(h_pool, [-1, h_pool.get_shape()[2]*512])
+            W_fc6 = tf.get_variable('W_fc6', shape=[h_pool.get_shape()[2]*512, 64],
+                                initializer=he_normal,regularizer = regularizer)
+            b_fc6 = tf.get_variable('b_fc6', [64], initializer=tf.constant_initializer(0.1))
+            fc6 =  tf.nn.xw_plus_b(h_pool_flat, W_fc6, b_fc6, name='fc6') 
+            #fc6 = tf.contrib.layers.batch_norm(fc6,center=True, scale=True,is_training=self.is_training)                
+            relu_fc6 =tf.nn.relu(fc6)
+            self.fc6 = tf.nn.dropout(relu_fc6, self.dropout_keep_prob)
+        
+        with tf.variable_scope('fc-dropout-7'):
+            W_fc7 = tf.get_variable('W_fc7', shape=[64, 64],
+                                initializer=he_normal,regularizer = regularizer)
+            b_fc7 = tf.get_variable('b_fc7', [64], initializer=tf.constant_initializer(0.1))
+            fc7 =  tf.nn.xw_plus_b(self.fc6, W_fc7, b_fc7, name='fc7')
 
-                #fc = tf.contrib.layers.batch_norm(fc,center=True, scale=True,is_training=self.is_training)                
-                relu =tf.nn.relu(fc)
-                self.fc5 = tf.nn.dropout(relu, self.dropout_keep_prob)
-            
-            with tf.variable_scope('fc-dropout-6'):
-                W = tf.get_variable('W', shape=[256, 256],
-                                    initializer=he_normal,regularizer = regularizer)
-                b = tf.get_variable('b', [256], initializer=tf.constant_initializer(0.1))
-                fc =  tf.nn.xw_plus_b(self.fc5, W, b, name='fc6')
-
-                #fc = tf.contrib.layers.batch_norm(fc,center=True, scale=True,is_training=self.is_training)                
-                relu =tf.nn.relu(fc)
-                self.fc6 =tf.nn.dropout(relu, self.dropout_keep_prob)
-            
-            with tf.variable_scope('fc-dropout-7'):            
-                W = tf.get_variable('W', shape=[256, num_classes],
-                                        initializer=initializer,regularizer = regularizer)
-                b = tf.get_variable('b', [num_classes], initializer=tf.constant_initializer(0.1))
-                self.scores = tf.nn.xw_plus_b(self.fc6, W, b, name='fc7')
-                self.predictions = tf.argmax(self.scores, 1, name='predictions')
+            #fc7 = tf.contrib.layers.batch_norm(fc7,center=True, scale=True,is_training=self.is_training)                
+            relu_fc7 =tf.nn.relu(fc7)
+            self.fc7 =tf.nn.dropout(relu_fc7, self.dropout_keep_prob)
+        
+        with tf.variable_scope('fc-dropout-8'):            
+            W_fc8 = tf.get_variable('W_fc8', shape=[64, num_classes],
+                                    initializer=initializer,regularizer = regularizer)
+            b_fc8 = tf.get_variable('b_fc8', [num_classes], initializer=tf.constant_initializer(0.1))
+            self.scores = tf.nn.xw_plus_b(self.fc7, W_fc8, b_fc8, name='fc8')
+            self.predictions = tf.argmax(self.scores, 1, name='predictions')
 
         # Calculate mean cross-entropy loss
         with tf.name_scope('loss'):            

@@ -55,13 +55,13 @@ def train_cnn(dataset_name):
                 vocab_size=len(vocab_processor.vocabulary_),
                 embedding_size=params['embedding_dim'],
                 filter_sizes=list(map(int, params['filter_sizes'].split(","))),
-                num_filters=params['num_filters'],
-                l2_reg_lambda=params['l2_reg_lambda'])
+                num_filters=params['num_filters'])
 
             global_step = tf.Variable(0, name="global_step", trainable=False)
+            epsilon=params['epsilon']
             num_batches_per_epoch = int((len(x_train)-1)/params['batch_size']) + 1
-            learning_rate = tf.train.exponential_decay(0.0001, global_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
-            #learning_rate = params['learning_rate']
+            learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
+
             optimizer = tf.train.AdamOptimizer(learning_rate)
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
