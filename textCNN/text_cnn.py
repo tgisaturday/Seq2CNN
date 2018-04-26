@@ -92,12 +92,12 @@ class TextCNN(object):
         h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
         h = tf.nn.relu(h, name='relu')
             
-        filter_shape = [3, 1, 256, 256]
-        W_4_4 = tf.get_variable(name='W_4_4', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-        conv = tf.nn.conv2d(h, W_4_4, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+        #filter_shape = [3, 1, 256, 256]
+        #W_4_4 = tf.get_variable(name='W_4_4', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        #conv = tf.nn.conv2d(h, W_4_4, strides=[1, 2, 1, 1], padding='SAME', name='conv')
 
-        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-        h = tf.nn.relu(h, name='relu')
+        #h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        #h = tf.nn.relu(h, name='relu')
 
         # Maxpooling over the outputs                        
         pooled = tf.nn.max_pool(h, ksize=[1, 2, 1, 1], strides=[1, 2, 1, 1],padding='SAME', name='pool') 
@@ -124,12 +124,12 @@ class TextCNN(object):
         h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
         h = tf.nn.relu(h, name='relu')
             
-        filter_shape = [3, 1, 512, 512]
-        W_5_4 = tf.get_variable(name='W_5_4', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-        conv = tf.nn.conv2d(h, W_5_4, strides=[1, 2, 1, 1], padding='SAME', name='conv')
+        #filter_shape = [3, 1, 512, 512]
+        #W_5_4 = tf.get_variable(name='W_5_4', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+        #conv = tf.nn.conv2d(h, W_5_4, strides=[1, 2, 1, 1], padding='SAME', name='conv')
 
-        h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
-        h = tf.nn.relu(h, name='relu')
+        #h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+        #h = tf.nn.relu(h, name='relu')
 
         # Maxpooling over the outputs                        
         pooled = tf.nn.max_pool(h, ksize=[1, 2, 1, 1], strides=[1, 2, 1, 1],padding='SAME', name='pool')            
