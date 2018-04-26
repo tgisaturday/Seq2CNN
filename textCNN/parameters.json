@@ -1,9 +1,8 @@
 {
     "num_epochs": 20,
-    "batch_size": 128,
+    "batch_size": 256,
     "learning_rate": 0.001,
     "epsilon": 0.1,
-    "max_length": 150,
     "num_filters": 32,
     "min_frequency": 1,
     "filter_sizes": "3,4,5",

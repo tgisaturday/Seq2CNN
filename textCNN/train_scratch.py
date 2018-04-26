@@ -18,8 +18,8 @@ def train_cnn(dataset_name):
     testset = '../dataset/'+dataset_name+'_csv/test.csv'
     parameter_file = "./parameters.json"
     params = json.loads(open(parameter_file).read())
-    x_raw, y_raw, df, labels = data_helper.load_data_and_labels(dataset,params['max_length'])
-    x_test, y_test, df, labels = data_helper.load_data_and_labels(testset,params['max_length'])
+    x_raw, y_raw, df, labels = data_helper.load_data_and_labels(dataset,dataset_name)
+    x_test, y_test, df, labels = data_helper.load_data_and_labels(testset,dataset_name)
 
     """Step 1: pad each sentence to the same length and map each word to an id"""
     max_document_length = max([len(x.split(' ')) for x in x_raw])
@@ -62,15 +62,18 @@ def train_cnn(dataset_name):
             num_batches_per_epoch = int((len(x_train)-1)/params['batch_size']) + 1
             learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
 
-            optimizer = tf.train.AdamOptimizer(learning_rate)
+            optimizer = tf.train.AdamOptimizer(learning_rate,epsilon)
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            grads_and_vars = optimizer.compute_gradients(cnn.loss)
+
+            gradients, variables = zip(*optimizer.compute_gradients(cnn.loss))
+            gradients, _ = tf.clip_by_global_norm(gradients, 7.0)
+
             with tf.control_dependencies(update_ops):
-                train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+                train_op = optimizer.apply_gradients(zip(gradients, variables), global_step=global_step)
 
             timestamp = str(int(time.time()))
-            #timestamp = 'H'
-            out_dir = os.path.abspath(os.path.join(os.path.curdir, "trained_model_" + timestamp))
+            
+            out_dir = os.path.abspath(os.path.join(os.path.curdir, "model_" + timestamp))
 
             checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
             checkpoint_prefix = os.path.join(checkpoint_dir, "model")
