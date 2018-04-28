@@ -7,9 +7,8 @@ initializer = tf.contrib.layers.xavier_initializer()
 he_normal = tf.keras.initializers.he_normal()
 rand_uniform = tf.random_uniform_initializer(-1,1,seed=2)
 regularizer = tf.contrib.layers.l2_regularizer(1e-3)
-
 class seq2CNN(object):  
-    def __init__(self,num_classes,filter_sizes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size, seq_ratio):
+    def __init__(self,embeddings, num_classes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
@@ -22,10 +21,8 @@ class seq2CNN(object):
         
         
         with tf.device('/cpu:0'),tf.name_scope('embedding'):
-            embeddings = tf.get_variable(name='embedding_W', shape=[vocab_size, embedding_size],initializer=rand_uniform)
             enc_embed_input = tf.nn.embedding_lookup(embeddings, self.input_x)
             embedding_size = embedding_size
-
         #seq2seq layers
         with tf.name_scope('seq2seq'):
             batch_size = tf.reshape(self.batch_size, [])
@@ -50,15 +47,13 @@ class seq2CNN(object):
         self.training_logits = tf.reshape(self.training_logits, [batch_size,max_summary_length])
 
 
-    
+        self.pooled_outputs=[]    
         #VGGnet_Bigram
         with tf.name_scope('textCNN'):
             self.decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
-            self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)
-
-            self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
-            
-            self.pooled_outputs = []
+            self.cnn_input = tf.expand_dims(self.decoder_output, -1) 
+            filter_sizes=[3,4,5]
+            pooled_outputs = []
             for i, filter_size in enumerate(filter_sizes):
                 with tf.variable_scope('conv-maxpool-%s' % filter_size):
                     # Convolution Layer
@@ -89,7 +84,7 @@ class seq2CNN(object):
             cnn_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores)
             masks = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
             seq_loss = tf.contrib.seq2seq.sequence_loss(training_logits[0].rnn_output,self.targets,masks)
-            self.loss = tf.reduce_mean(cnn_loss) + seq_ratio*seq_loss + tf.reduce_sum(regularization_losses)
+            self.loss = tf.reduce_mean(cnn_loss) + seq_loss + tf.reduce_sum(regularization_losses)
             self.seq_loss = seq_loss
             self.cnn_loss = tf.reduce_mean(cnn_loss)+ tf.reduce_sum(regularization_losses)
         # Accuracy
@@ -114,20 +109,13 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     for layer in range(num_layers):
         with tf.variable_scope('encoder_{}'.format(layer)):
 
-            #cell_fw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
-            #cell_bw = tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
-
             cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
             cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
 
             cell_bw = tf.contrib.rnn.GRUCell(rnn_size)   
             cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
 
-            #cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            #cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
 
-            #cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))   
-            #cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
 
             enc_output, enc_state = tf.nn.bidirectional_dynamic_rnn(cell_fw, 
                                                                     cell_bw, 
@@ -140,7 +128,11 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     return enc_output, enc_state
 
 def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_token, end_token, dec_cell, initial_state, output_layer, vocab_size, max_summary_length, batch_size):
-
+    #start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
+    
+    #training_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,
+                                                                #start_tokens,
+                                                                #end_token)
     training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=dec_embed_input,
                                                             sequence_length=summary_length,
                                                             time_major=False)
@@ -164,14 +156,9 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
     for layer in range(num_layers):
         with tf.variable_scope('decoder_{}'.format(layer)):
 
-            #dec_cell =tf.contrib.rnn.LayerNormBasicLSTMCell(rnn_size,layer_norm=True,dropout_keep_prob= keep_prob)
-
             lstm = tf.contrib.rnn.GRUCell(rnn_size)
             dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
 
-            #lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            #dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
-    
     output_layer = Dense(vocab_size,
                          kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))
     
@@ -203,3 +190,25 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
     return training_logits
 
 
+
+        
+def inference_decoding_layer(embeddings, start_token, end_token, dec_cell, initial_state, output_layer, max_summary_length, batch_size):
+    '''Create the inference logits'''
+    
+    start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
+    
+    inference_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,
+                                                                start_tokens,
+                                                                end_token)
+                
+    inference_decoder, _, _  = tf.contrib.seq2seq.BasicDecoder(dec_cell,
+                                                        inference_helper,
+                                                        initial_state,
+                                                        output_layer)
+                
+    inference_logits, _, _ = tf.contrib.seq2seq.dynamic_decode(inference_decoder,
+                                                            output_time_major=False,
+                                                            impute_finished=True,
+                                                            maximum_iterations=max_summary_length)
+    
+    return inference_logits
