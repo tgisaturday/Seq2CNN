@@ -92,14 +92,17 @@ class seq2CNN(object):
             self.loss = tf.reduce_mean(cnn_loss) + seq_ratio*seq_loss + tf.reduce_sum(regularization_losses)
             self.seq_loss = seq_loss
             self.cnn_loss = tf.reduce_mean(cnn_loss)+ tf.reduce_sum(regularization_losses)
+            tf.summary.scalar('seq_loss',self.seq_loss)
+            tf.summary.scalar('cnn_loss',self.cnn_loss)
         # Accuracy
         with tf.name_scope('accuracy'):
             correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, 'float'), name='accuracy')
+            tf.summary.scalar('accuracy',self.accuracy)
         with tf.name_scope('num_correct'):
             correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
             self.num_correct = tf.reduce_sum(tf.cast(correct_predictions, 'float'), name='num_correct')
-            
+        self.merged = tf.summary.merge_all()    
 def process_encoding_input(target_data, vocab_to_int, batch_size):
     '''Remove the last word id from each batch and concat the <GO> to the begining of each batch'''
     

@@ -188,6 +188,7 @@ def train_cnn(dataset_name):
     with graph.as_default():
         session_conf = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
         sess = tf.Session(config=session_conf)
+
         with sess.as_default():
             cnn = seq2CNN(
                 num_classes=y_train.shape[1],
@@ -227,6 +228,9 @@ def train_cnn(dataset_name):
 
             checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
             checkpoint_prefix = os.path.join(checkpoint_dir, "model")
+            #for tensorboard
+            train_writer = tf.summary.FileWriter('/home/tgisaturday/Workspace/Taehoon/VGG_text_cnn/seq2CNN'+'/graphs/train/'+dataset_name,sess.graph)
+            test_writer = tf.summary.FileWriter('/home/tgisaturday/Workspace/Taehoon/VGG_text_cnn/seq2CNN'+'/graphs/test/'+dataset_name) 
             if not os.path.exists(checkpoint_dir):
                 os.makedirs(checkpoint_dir)
             saver = tf.train.Saver(tf.global_variables())
@@ -242,7 +246,9 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
-                _, logits, step, loss,seq_loss, cnn_loss, acc = sess.run([train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.cnn_loss, cnn.accuracy], feed_dict)
+                summary, _, logits, step, loss,seq_loss, cnn_loss, acc = sess.run([cnn.merged,train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.cnn_loss, cnn.accuracy], feed_dict)
+                current_step = tf.train.global_step(sess, global_step)
+                train_writer.add_summary(summary,current_step)
                 return loss, seq_loss, cnn_loss, acc, logits
             def seq_train_step(x_batch, y_batch,target_batch,t_batch,s_batch):
                 feed_dict = {
@@ -254,7 +260,9 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
-                _, logits, step, loss,seq_loss,cnn_loss, acc = sess.run([seq_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss,cnn.cnn_loss,cnn.accuracy], feed_dict)
+                summary,_, logits, step, loss,seq_loss,cnn_loss, acc = sess.run([cnn.merged,seq_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss,cnn.cnn_loss,cnn.accuracy], feed_dict)
+                current_step = tf.train.global_step(sess, global_step)
+                train_writer.add_summary(summary,current_step)
                 return loss, seq_loss, cnn_loss, acc, logits
             def cnn_train_step(x_batch, y_batch,target_batch,t_batch,s_batch):
                 feed_dict = {
@@ -266,7 +274,9 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
                     cnn.is_training: True}
-                _, logits, step, loss,seq_loss,cnn_loss, acc = sess.run([cnn_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss,cnn.cnn_loss,cnn.accuracy], feed_dict)
+                summary, _, logits, step, loss,seq_loss,cnn_loss, acc = sess.run([cnn.merged,cnn_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss,cnn.cnn_loss,cnn.accuracy], feed_dict)
+                current_step = tf.train.global_step(sess, global_step)
+                train_writer.add_summary(summary,current_step)
                 return loss, seq_loss, cnn_loss, acc, logits
             
             # One evaluation step: evaluate the model with one batch
@@ -280,16 +290,18 @@ def train_cnn(dataset_name):
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: 1.0,
                     cnn.is_training: False}
-                step, loss, seq_loss, acc, num_correct,examples = sess.run([global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct,cnn.training_logits],feed_dict)
+                summary, step, loss, seq_loss, acc, num_correct,examples = sess.run([cnn.merged,global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct,cnn.training_logits],feed_dict)
                 if watch_rnn_output == True:
                     pad = vocab_to_int['PAD']
                     result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
                     logging.info('{}'.format(result))
-                 
+                current_step = tf.train.global_step(sess, global_step)
+                test_writer.add_summary(summary,current_step) 
                 return num_correct
 
             # Save the word_to_id map since predict.py needs it
             vocab_processor.save(os.path.join(out_dir, "vocab.pickle"))
+
             sess.run(tf.global_variables_initializer())
 
             # Training starts here
