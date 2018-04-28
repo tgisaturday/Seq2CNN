@@ -224,13 +224,13 @@ def train_cnn(dataset_name):
                 cnn_train_op = optimizer.apply_gradients(zip(cnn_gradients, cnn_variables), global_step=global_step)
 
             timestamp = str(int(time.time()))
-            out_dir = os.path.abspath(os.path.join(os.path.curdir, "result_" + timestamp))
+            out_dir = os.path.abspath(os.path.join(os.path.curdir, dataset_name + "_" + timestamp))
 
             checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
             checkpoint_prefix = os.path.join(checkpoint_dir, "model")
             #for tensorboard
-            train_writer = tf.summary.FileWriter('/home/tgisaturday/Workspace/Taehoon/VGG_text_cnn/seq2CNN'+'/graphs/train/'+dataset_name,sess.graph)
-            test_writer = tf.summary.FileWriter('/home/tgisaturday/Workspace/Taehoon/VGG_text_cnn/seq2CNN'+'/graphs/test/'+dataset_name) 
+            train_writer = tf.summary.FileWriter('/home/tgisaturday/Workspace/Taehoon/VGG_text_cnn/seq2CNN'+'/graphs/train/'+dataset_name+'_'+timestamp,sess.graph)
+            test_writer = tf.summary.FileWriter('/home/tgisaturday/Workspace/Taehoon/VGG_text_cnn/seq2CNN'+'/graphs/test/'+dataset_name+'_'+timestamp) 
             if not os.path.exists(checkpoint_dir):
                 os.makedirs(checkpoint_dir)
             saver = tf.train.Saver(tf.global_variables())
