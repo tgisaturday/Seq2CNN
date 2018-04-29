@@ -25,7 +25,7 @@ class TextCNN(object):
         for i, filter_size in enumerate(filter_sizes):
             with tf.variable_scope('conv-maxpool-%s' % filter_size):
                 # Convolution Layer
-                filter_shape = [3, embedding_size, 1, 32]
+                filter_shape = [filter_size, embedding_size, 1, 32]
                 W = tf.get_variable(name='W', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
                 conv = tf.nn.conv2d(self.embedded_chars_expanded, W, strides=[1, 1, 1, 1], padding='SAME', name='conv')
                 #Apply nonlinearity

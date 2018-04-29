@@ -1,5 +1,5 @@
 {
-    "num_epochs": 20,
+    "num_epochs": 15,
     "batch_size": 128,
     "filter_sizes": "3,4,5",
     "learning_rate": 0.001,
@@ -12,7 +12,7 @@
     "num_filters": 32,
     "embedding_dim": 100,
     "evaluate_every": 100,
-    "dropout_keep_prob": 0.2,
+    "dropout_keep_prob": 0.3,
     "enable_max_len": 0,
     "summary_using_keywords": 1,
     "rnn_layer_norm": 1,
@@ -20,7 +20,7 @@
     "temp_norm": 1,
     "use_gru": 1,
     "watch_rnn_output": 0,
-    "independent_train": 1,
+    "independent_train": 0,
     "seq_ratio": 1.0,
     "is_simple": 1
 }

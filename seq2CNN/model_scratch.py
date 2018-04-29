@@ -92,6 +92,7 @@ class seq2CNN(object):
             self.loss = tf.reduce_mean(cnn_loss) + seq_ratio*seq_loss + tf.reduce_sum(regularization_losses)
             self.seq_loss = seq_loss
             self.cnn_loss = tf.reduce_mean(cnn_loss)+ tf.reduce_sum(regularization_losses)
+            tf.summary.scalar('loss',self.loss)
             tf.summary.scalar('seq_loss',self.seq_loss)
             tf.summary.scalar('cnn_loss',self.cnn_loss)
         # Accuracy
