@@ -6,7 +6,7 @@ import logging
 import data_helper
 import numpy as np
 import tensorflow as tf
-from text_cnn import TextCNN
+from original import TextCNN
 from tensorflow.contrib import learn
 from sklearn.model_selection import train_test_split
 

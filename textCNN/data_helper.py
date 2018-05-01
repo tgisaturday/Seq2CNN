@@ -46,13 +46,27 @@ def clean_str(text):
 
     return ' '.join(text).strip()
 
+def shrink_df(label,label_count):
+    count = label_count.get(label)
+    if count == None:
+        label_count[label]=1
+        return label
+    elif count < 30000:
+        label_count[label]+=1
+        return label
+    else:
+        return 'N/A'
+    
 def load_data_and_labels(filename, dataset_name):
     """Load sentences and labels"""
+    label_count={}
     if dataset_name == 'ag_news' or dataset_name == 'dbpedia' or dataset_name == 'sogou_news' or dataset_name == 'amazon_review_full' or dataset_name == 'amazon_review_polarity' :
         df = pd.read_csv(filename, names=['label', 'title', 'text'], dtype={'title': object,'text': object})
-        selected = ['label', 'title','text']
+        selected = ['label', 'title','text','to_drop']
 
         non_selected = list(set(df.columns) - set(selected))
+        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count)))
+        df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
         df = df.drop(non_selected, axis=1) # Drop non selected columns
         df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
@@ -67,8 +81,10 @@ def load_data_and_labels(filename, dataset_name):
             
     elif dataset_name == 'yelp_review_full' or dataset_name == 'yelp_review_polarity':
         df = pd.read_csv(filename, names=['label','text'], dtype={'text': object})
-        selected = ['label','text']
+        selected = ['label','text','to_drop']
         non_selected = list(set(df.columns) - set(selected))
+        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count)))
+        df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
         df = df.drop(non_selected, axis=1) # Drop non selected columns
         df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
@@ -83,11 +99,12 @@ def load_data_and_labels(filename, dataset_name):
 
     elif dataset_name == 'yahoo_answers':
         df = pd.read_csv(filename, names=['label', 'title', 'content','answer'], dtype={'title': object,'answer': object,'content': object})
-        selected = ['label', 'title','content','answer']
+        selected = ['label', 'title','content','answer','to_drop']
         
         non_selected = list(set(df.columns) - set(selected))
+        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count)))
+        df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
         df['temp'] = df[['content','answer']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
-        df['merged'] = df[['temp','title']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
         df = df.drop(non_selected, axis=1) # Drop non selected columns
         df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe

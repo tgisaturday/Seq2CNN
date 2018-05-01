@@ -91,14 +91,28 @@ def gen_summary(text,max_length):
         text = text[0:max_length]
     return ' '.join(text)
 
-def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,enable_max,enable_keywords):
+
+
+def shrink_df(label,label_count):
+    count = label_count.get(label)
+    if count == None:
+        label_count[label]=1
+        return label
+    elif count < 30000:
+        label_count[label]+=1
+        return label
+    else:
+        return 'N/A'
+    
+def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,enable_max):
     """Load sentences and labels"""
+    label_count={}
     if dataset_name == 'ag_news' or dataset_name == 'dbpedia' or dataset_name == 'sogou_news' or dataset_name == 'amazon_review_full' or dataset_name == 'amazon_review_polarity' :
         df = pd.read_csv(filename, names=['label', 'title', 'text'], dtype={'title': object,'text': object})
-        selected = ['label', 'title','text']
-
+        selected = ['label', 'title','text','to_drop']
+        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count)))
+        df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
         non_selected = list(set(df.columns) - set(selected))
-        df['merged'] = df[['title', 'text']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
         df = df.drop(non_selected, axis=1) # Drop non selected columns
         df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
@@ -110,15 +124,16 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
 
         x_raw = df[selected[2]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
-        if enable_keywords:
-            target_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-        else:
-            target_raw = df['merged'].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
+
+        target_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+
             
     elif dataset_name == 'yelp_review_full' or dataset_name == 'yelp_review_polarity':
         df = pd.read_csv(filename, names=['label','text'], dtype={'text': object})
-        selected = ['label','text']
+        selected = ['label','text','to_drop']
         non_selected = list(set(df.columns) - set(selected))
+        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count)))
+        df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
         df = df.drop(non_selected, axis=1) # Drop non selected columns
         df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
@@ -130,18 +145,17 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
 
         x_raw = df['text'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
-        if enable_keywords:
-            target_raw = df['text'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-        else:
-            target_raw = df['text'].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
+        target_raw = df['text'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+
             
     elif dataset_name == 'yahoo_answers':
         df = pd.read_csv(filename, names=['label', 'title', 'content','answer'], dtype={'title': object,'answer': object,'content': object})
-        selected = ['label', 'title','content','answer']
+        selected = ['label', 'title','content','answer','to_drop']
         
         non_selected = list(set(df.columns) - set(selected))
         df['temp'] = df[['content','answer']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
-        df['merged'] = df[['temp','title']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
+        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count)))
+        df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
         df = df.drop(non_selected, axis=1) # Drop non selected columns
         df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
@@ -153,10 +167,9 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
 
         x_raw = df['temp'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
-        if enable_keywords:
-            target_raw = df['temp'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-        else:
-            target_raw = df['merged'].apply(lambda x: clean_str(x,max_summary_length,True)).tolist()
+
+        target_raw = df['temp'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
+
                    
             
     return x_raw, y_raw,target_raw, df, labels
