@@ -42,8 +42,8 @@ def clean_str(text,max_length,enable_max):
     text = re.sub(r'\'', ' ', text)
     
     text = text.split(' ')
-    stops = set(stopwords.words("english"))
-    text = [w for w in text if not w in stops] 
+    #stops = set(stopwords.words("english"))
+    #text = [w for w in text if not w in stops] 
     
     text = empty_remover(text)
     if enable_max :
