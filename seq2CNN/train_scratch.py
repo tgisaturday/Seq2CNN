@@ -163,7 +163,7 @@ def train_cnn(dataset_name):
     target_shuffled = target[shuffle_indices]
     t_shuffled = t[shuffle_indices]
     s_shuffled = s[shuffle_indices]
-    x_train, x_dev, y_train, y_dev,target_train, target_dev, t_train, t_dev,s_train, s_dev = train_test_split(x_shuffled, y_shuffled,target_shuffled, t_shuffled,s_shuffled, test_size=0.01)
+    x_train, x_dev, y_train, y_dev,target_train, target_dev, t_train, t_dev,s_train, s_dev = train_test_split(x_shuffled, y_shuffled,target_shuffled, t_shuffled,s_shuffled, test_size=0.1)
 
     """Step 4: save the labels into labels.json since predict.py needs it"""
     with open('./labels.json', 'w') as outfile:
@@ -208,8 +208,8 @@ def train_cnn(dataset_name):
             seq_gradients, seq_variables = zip(*optimizer.compute_gradients(cnn.seq_loss))
             cnn_gradients, cnn_variables = zip(*optimizer.compute_gradients(cnn.cnn_loss))
             gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
-            seq_gradients, _ = tf.clip_by_global_norm(seq_gradients, 7.0)
-            cnn_gradients, _ = tf.clip_by_global_norm(cnn_gradients, 7.0)
+            seq_gradients, _ = tf.clip_by_global_norm(seq_gradients, 5.0)
+            cnn_gradients, _ = tf.clip_by_global_norm(cnn_gradients, 5.0)
             with tf.control_dependencies(update_ops):
                 train_op = optimizer.apply_gradients(zip(gradients, variables), global_step=global_step)
                 seq_train_op = optimizer.apply_gradients(zip(seq_gradients, seq_variables), global_step=global_step)

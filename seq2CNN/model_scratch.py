@@ -118,17 +118,17 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     for layer in range(num_layers):
         with tf.variable_scope('encoder_{}'.format(layer)):
 
-            cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
-            cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
-
-            cell_bw = tf.contrib.rnn.GRUCell(rnn_size)   
-            cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
-
-            #cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            #cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
             #cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
 
-            #cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))   
+            #cell_bw = tf.contrib.rnn.GRUCell(rnn_size)   
             #cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
+
+            cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
+
+            cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))   
+            cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
 
             enc_output, enc_state = tf.nn.bidirectional_dynamic_rnn(cell_fw, 
                                                                     cell_bw, 
@@ -165,11 +165,11 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
     for layer in range(num_layers):
         with tf.variable_scope('decoder_{}'.format(layer)):
 
-            lstm = tf.contrib.rnn.GRUCell(rnn_size)
-            dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
-
-            #lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            #lstm = tf.contrib.rnn.GRUCell(rnn_size)
             #dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
+
+            lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
     
     output_layer = Dense(vocab_size,
                          kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))
