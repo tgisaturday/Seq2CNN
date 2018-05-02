@@ -43,7 +43,11 @@ def clean_str(text):
     text = [w for w in text if not w in stops] 
     
     text = empty_remover(text)
-
+    
+    if len(text) >= 20:
+        result = text[0:20]
+    elif len(text) < 20:
+        result = text + ["PAD"] * (20 - len(text)-1)
     return ' '.join(text).strip()
 
 def shrink_df(label,label_count):

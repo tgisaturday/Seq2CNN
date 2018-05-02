@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import logging
 from tensorflow.python.layers.core import Dense
 from tensorflow.python.ops.rnn_cell_impl import _zero_state_tensors
 
@@ -33,7 +34,7 @@ class seq2CNN(object):
             
             dec_input = process_encoding_input(self.targets, vocab_to_int, batch_size)
             dec_embed_input = tf.nn.embedding_lookup(embeddings, dec_input)
-            training_logits  = decoding_layer(dec_embed_input,
+            training_logits, inference_logits = decoding_layer(dec_embed_input,
                                                 embeddings,
                                                 enc_output,
                                                 enc_state, 
@@ -45,43 +46,76 @@ class seq2CNN(object):
                                                 vocab_to_int, 
                                                 self.dropout_keep_prob, 
                                                 batch_size,
-                                                rnn_num_layers)
+                                                rnn_num_layers,
+                                                self.is_training)
+
             self.training_logits =tf.argmax(training_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
-        self.training_logits = tf.reshape(self.training_logits, [batch_size,max_summary_length])
-
-
-    
-        #VGGnet_Bigram
-        with tf.name_scope('textCNN'):
-            self.decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
-            self.decoder_output_expanded = tf.expand_dims(self.decoder_output, -1)
-
-            self.cnn_input = tf.contrib.layers.batch_norm(self.decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
+            self.training_logits = tf.reshape(self.training_logits, [batch_size,max_summary_length])
+            self.inference_logits = tf.argmax(inference_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
+            self.inference_logits = tf.reshape(self.inference_logits, [batch_size,max_summary_length])
             
-            self.pooled_outputs = []
+        #VGGnet_Bigram
+        with tf.variable_scope('textCNN'):
+            decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
+            decoder_output_expanded = tf.expand_dims(decoder_output, -1)
+
+            cnn_input = tf.contrib.layers.batch_norm(decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
+            
+            pooled_outputs = []
             for i, filter_size in enumerate(filter_sizes):
                 with tf.variable_scope('conv-maxpool-%s' % filter_size):
                     # Convolution Layer
                     filter_shape = [filter_size, embedding_size, 1, num_filters]
                     W = tf.get_variable(name='W', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
-                    conv = tf.nn.conv2d(self.cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
+                    conv = tf.nn.conv2d(cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
                     #Apply nonlinearity
                     h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
                     h = tf.nn.relu(h, name='relu')
                     # Maxpooling over the outputs
                     pooled = tf.nn.max_pool(h, ksize=[1, max_summary_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],
                                        padding='VALID', name='pool')                
-                    self.pooled_outputs.append(pooled)
+                    pooled_outputs.append(pooled)
  
-            self.h_pool = tf.concat(self.pooled_outputs, 3)
-            self.h_pool_flat = tf.reshape(self.h_pool, [-1, len(filter_sizes)*num_filters])
+            h_pool = tf.concat(pooled_outputs, 3)
+            h_pool_flat = tf.reshape(h_pool, [-1, len(filter_sizes)*num_filters])
             with tf.variable_scope('output'):
-                self.h_drop = tf.nn.dropout(self.h_pool_flat, self.dropout_keep_prob)
+                h_drop = tf.nn.dropout(h_pool_flat, self.dropout_keep_prob)
                 W = tf.get_variable('W', shape=[len(filter_sizes)*num_filters, num_classes],
                                     initializer=initializer,regularizer = regularizer)
                 b = tf.get_variable('b', [num_classes], initializer=tf.constant_initializer(0.1))
-                self.scores = tf.nn.xw_plus_b(self.h_drop, W, b, name='scores')
-                self.predictions = tf.argmax(self.scores, 1, name='predictions')    
+                self.scores = tf.nn.xw_plus_b(h_drop, W, b, name='scores')
+                self.predictions = tf.argmax(self.scores, 1, name='predictions') 
+                
+        with tf.variable_scope('textCNN', reuse=True):
+            inference_output = tf.nn.embedding_lookup(embeddings, self.inference_logits)
+            inference_output_expanded = tf.expand_dims(inference_output, -1)
+
+            inference_cnn_input = tf.contrib.layers.batch_norm(inference_output_expanded,center=True, scale=True,is_training=self.is_training)
+            
+            inference_pooled_outputs = []
+            for i, filter_size in enumerate(filter_sizes):
+                with tf.variable_scope('conv-maxpool-%s' % filter_size):
+                    # Convolution Layer
+                    filter_shape = [filter_size, embedding_size, 1, num_filters]
+                    W = tf.get_variable(name='W', shape=filter_shape,initializer=he_normal,regularizer=regularizer)
+                    conv = tf.nn.conv2d(cnn_input, W, strides=[1, 1, 1, 1], padding='VALID', name='conv')
+                    #Apply nonlinearity
+                    h = tf.contrib.layers.batch_norm(conv,center=True, scale=True,is_training=self.is_training)
+                    h = tf.nn.relu(h, name='relu')
+                    # Maxpooling over the outputs
+                    pooled = tf.nn.max_pool(h, ksize=[1, max_summary_length - filter_size + 1, 1, 1], strides=[1, 1, 1, 1],
+                                       padding='VALID', name='pool')                
+                    inference_pooled_outputs.append(pooled)
+ 
+            inference_h_pool = tf.concat(inference_pooled_outputs, 3)
+            inference_h_pool_flat = tf.reshape(inference_h_pool, [-1, len(filter_sizes)*num_filters])
+            with tf.variable_scope('output'):
+                inference_h_drop = tf.nn.dropout(inference_h_pool_flat, self.dropout_keep_prob)
+                W = tf.get_variable('W', shape=[len(filter_sizes)*num_filters, num_classes],
+                                    initializer=initializer,regularizer = regularizer)
+                b = tf.get_variable('b', [num_classes], initializer=tf.constant_initializer(0.1))
+                self.inference_scores = tf.nn.xw_plus_b(inference_h_drop, W, b, name='inference_scores')
+                self.inference_predictions = tf.argmax( self.inference_scores, 1, name='inference_predictions')             
                
         # Calculate mean cross-entropy loss
         with tf.name_scope('loss'):            
@@ -101,7 +135,7 @@ class seq2CNN(object):
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, 'float'), name='accuracy')
             tf.summary.scalar('accuracy',self.accuracy)
         with tf.name_scope('num_correct'):
-            correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
+            correct_predictions = tf.equal(self.inference_predictions, tf.argmax(self.input_y, 1))
             self.num_correct = tf.reduce_sum(tf.cast(correct_predictions, 'float'), name='num_correct')
         self.merged = tf.summary.merge_all()    
 def process_encoding_input(target_data, vocab_to_int, batch_size):
@@ -118,17 +152,17 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     for layer in range(num_layers):
         with tf.variable_scope('encoder_{}'.format(layer)):
 
-            #cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
-            #cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
-
-            #cell_bw = tf.contrib.rnn.GRUCell(rnn_size)   
-            #cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
-
-            cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
             cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
 
-            cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))   
+            cell_bw = tf.contrib.rnn.GRUCell(rnn_size)   
             cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
+
+            #cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            #cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
+
+            #cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))   
+            #cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
 
             enc_output, enc_state = tf.nn.bidirectional_dynamic_rnn(cell_fw, 
                                                                     cell_bw, 
@@ -140,11 +174,16 @@ def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob)
     
     return enc_output, enc_state
 
-def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_token, end_token, dec_cell, initial_state, output_layer, vocab_size, max_summary_length, batch_size):
-
-    training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=dec_embed_input,
+def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_token, end_token, dec_cell, initial_state, output_layer, vocab_size, max_summary_length, batch_size,is_training):
+    if is_training == True:
+        training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=dec_embed_input,
                                                             sequence_length=summary_length,
                                                             time_major=False)
+    else:
+        start_tokens = tf.tile(tf.constant([start_token], dtype=tf.int32), [batch_size], name='start_tokens')
+        training_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(embeddings,
+                                                                start_tokens,
+                                                                end_token)
 
     training_decoder = tf.contrib.seq2seq.BasicDecoder(dec_cell,
                                                            training_helper,
@@ -159,17 +198,17 @@ def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_t
 
 
 
-def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers):
+def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers, is_training):
     '''Create the decoding cell and attention for the training and inference decoding layers'''
 
     for layer in range(num_layers):
         with tf.variable_scope('decoder_{}'.format(layer)):
 
-            #lstm = tf.contrib.rnn.GRUCell(rnn_size)
-            #dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
-
-            lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            lstm = tf.contrib.rnn.GRUCell(rnn_size)
             dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
+
+            #lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+            #dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
     
     output_layer = Dense(vocab_size,
                          kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))
@@ -197,8 +236,20 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
                                                   output_layer,
                                                   vocab_size, 
                                                  max_summary_length,
-                                                  batch_size)  
+                                                  batch_size,
+                                                  True)  
+    with tf.variable_scope("decode", reuse=True):
+        inference_logits = training_decoding_layer(embeddings,dec_embed_input,
+                                                  summary_length,                                                                                                                                           vocab_to_int['GO'], 
+                                                  vocab_to_int['EOS'],
+                                                  dec_cell, 
+                                                  initial_state,
+                                                  output_layer,
+                                                  vocab_size, 
+                                                 max_summary_length,
+                                                  batch_size,
+                                                  False)  
 
-    return training_logits
+    return training_logits, inference_logits
 
 
