@@ -10,8 +10,8 @@ import os
 from nltk.corpus import stopwords
 from collections import Counter
 from contractions import get_contractions
-from summa.summarizer import summarize
-from summa.keywords import keywords
+from gensim.summarization.summarizer import summarize
+from gensim.summarization import keywords
 
 def empty_remover(text):
     removed = []
@@ -42,8 +42,8 @@ def clean_str(text,max_length,enable_max):
     text = re.sub(r'\'', ' ', text)
     
     text = text.split(' ')
-    #stops = set(stopwords.words("english"))
-    #text = [w for w in text if not w in stops] 
+    stops = set(stopwords.words("english"))
+    text = [w for w in text if not w in stops] 
     
     text = empty_remover(text)
     if enable_max :
@@ -57,7 +57,11 @@ def clean_str(text,max_length,enable_max):
 
 def gen_summary(text,max_length):
     """Clean sentence"""
-    sentence = summarize(text)
+    try:
+        sentence = summarize(text, word_count=max_length)
+    except:
+        sentence = text
+
     bow = sentence
     bow = bow.lower()
     bow = bow.split()
