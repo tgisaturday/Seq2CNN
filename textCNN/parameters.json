@@ -1,8 +1,11 @@
 {
     "num_epochs": 10,
     "batch_size": 256,
+    "max_length": 20,
+    "use_summary": 1,
+    "data_per_class":20000,
     "learning_rate": 0.001,
-    "epsilon": 0.1,
+    "epsilon": 0.00000001,
     "num_filters": 32,
     "min_frequency": 1,
     "filter_sizes": "3,4,5",

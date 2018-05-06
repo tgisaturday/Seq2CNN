@@ -95,14 +95,19 @@ def gen_summary(text,max_length):
         text = text[0:max_length]
     return ' '.join(text)
 
-
-
-def shrink_df(label,label_count):
+def remove_short(text,min_length):
+    total = len(text.split(' '))
+    if total < min_length:
+        return 'N/A'
+    else:
+        return total
+    
+def shrink_df(label,label_count,data_per_class):
     count = label_count.get(label)
     if count == None:
         label_count[label]=1
         return label
-    elif count < 30000:
+    elif count < data_per_class:
         label_count[label]+=1
         return label
     else:
@@ -111,15 +116,22 @@ def shrink_df(label,label_count):
 def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,enable_max):
     """Load sentences and labels"""
     label_count={}
+    parameter_file = "./parameters.json"
+    params = json.loads(open(parameter_file).read())
     if dataset_name == 'ag_news' or dataset_name == 'dbpedia' or dataset_name == 'sogou_news' or dataset_name == 'amazon_review_full' or dataset_name == 'amazon_review_polarity' :
         df = pd.read_csv(filename, names=['label', 'title', 'text'], dtype={'title': object,'text': object})
-        selected = ['label', 'title','text','to_drop']
-        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count)))
-        df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
+        selected = ['label', 'title','text','too_short','to_drop']
         non_selected = list(set(df.columns) - set(selected))
-        df = df.drop(non_selected, axis=1) # Drop non selected columns
+        df = df.drop(non_selected, axis=1) # Drop non selected columns        
+        df['too_short']= df[selected[2]].apply(lambda x: (remove_short(x,max_summary_length)))
+        df['too_short']=df['too_short'].replace('N/A',np.NaN)
+        df = df.dropna(axis=0, how='any') # Drop null rows        
+        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count,params['data_per_class'])))
+        df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
         df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
+        for key,value in label_count.items():
+            print("{} : {}".format(key,value))
     # Map the actual labels to one hot labels
         labels = sorted(list(set(df[selected[0]].tolist())))
         one_hot = np.zeros((len(labels), len(labels)), int)
@@ -128,19 +140,24 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
 
         x_raw = df[selected[2]].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
-
+        start = time.time()
         target_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-
+        print("\nExecution time for summary generation = {0:.5f}".format(time.time() - start))
             
     elif dataset_name == 'yelp_review_full' or dataset_name == 'yelp_review_polarity':
         df = pd.read_csv(filename, names=['label','text'], dtype={'text': object})
-        selected = ['label','text','to_drop']
+        selected = ['label','text','too_short','to_drop']
         non_selected = list(set(df.columns) - set(selected))
-        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count)))
+        df = df.drop(non_selected, axis=1) # Drop non selected columns        
+        df['too_short']= df[selected[1]].apply(lambda x: (remove_short(x,max_summary_length)))
+        df['too_short']=df['too_short'].replace('N/A',np.NaN)
+        df = df.dropna(axis=0, how='any') # Drop null rows        
+        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count,params['data_per_class'])))
         df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
-        df = df.drop(non_selected, axis=1) # Drop non selected columns
         df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
+        for key,value in label_count.items():
+            print("{} : {}".format(key,value))
     # Map the actual labels to one hot labels
         labels = sorted(list(set(df[selected[0]].tolist())))
         one_hot = np.zeros((len(labels), len(labels)), int)
@@ -149,21 +166,27 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
 
         x_raw = df['text'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
+        start = time.time()
         target_raw = df['text'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-
+        print("\nExecution time for summary generation = {0:.5f}".format(time.time() - start))
             
     elif dataset_name == 'yahoo_answers':
         df = pd.read_csv(filename, names=['label', 'title', 'content','answer'], dtype={'title': object,'answer': object,'content': object})
-        selected = ['label', 'title','content','answer','to_drop']
+        selected = ['label', 'title','content','answer','too_short','to_drop']
         
         non_selected = list(set(df.columns) - set(selected))
+        df = df.drop(non_selected, axis=1) # Drop non selected columns        
         df['temp'] = df[['content','answer']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
-        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count)))
+        df['too_short']= df['temp'].apply(lambda x: (remove_short(x,max_summary_length)))
+        df['too_short']=df['too_short'].replace('N/A',np.NaN)
+        df = df.dropna(axis=0, how='any') # Drop null rows        
+        df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count,params['data_per_class'])))
         df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
-        df = df.drop(non_selected, axis=1) # Drop non selected columns
+
         df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
-
+        for key,value in label_count.items():
+            print("{} : {}".format(key,value))
         labels = sorted(list(set(df[selected[0]].tolist())))
         one_hot = np.zeros((len(labels), len(labels)), int)
         np.fill_diagonal(one_hot, 1)
@@ -171,9 +194,9 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
 
         x_raw = df['temp'].apply(lambda x: clean_str(x,max_length,enable_max)).tolist()
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
-
+        start = time.time()
         target_raw = df['temp'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-
+        print("\nExecution time for summary generation = {0:.5f}".format(time.time() - start))
                    
             
     return x_raw, y_raw,target_raw, df, labels

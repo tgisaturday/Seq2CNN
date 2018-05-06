@@ -344,12 +344,14 @@ def train_cnn(dataset_name):
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_test,t_test,s_test)), params['batch_size'], 1)
             total_test_correct = 0
             watch_rnn_output = True
+            start = time.time()
             for test_batch in test_batches:
                 x_test_batch, y_test_batch,target_test_batch, t_test_batch,s_test_batch = zip(*test_batch)
                 num_test_correct = dev_step(x_test_batch, y_test_batch,target_test_batch,t_test_batch,s_test_batch)
                 total_test_correct += num_test_correct
             path = saver.save(sess, checkpoint_prefix)
             test_accuracy = float(total_test_correct) / len(y_test)
+            logging.critical("\nExecution time for testing = {0:.5f}".format(time.time() - start))            
             logging.critical('Accuracy on test set is {} based on the best model {}'.format(test_accuracy, path))
             logging.critical('The training is complete')
 

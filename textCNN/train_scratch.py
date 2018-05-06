@@ -14,7 +14,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 def train_cnn(dataset_name):
     """Step 0: load sentences, labels, and training parameters"""
-    dataset = '../dataset/'+dataset_name+'_csv/train.csv'
+    dataset = '../dataset/'+dataset_name+'_csv/test.csv'
     testset = '../dataset/'+dataset_name+'_csv/test.csv'
     parameter_file = "./parameters.json"
     params = json.loads(open(parameter_file).read())
@@ -139,11 +139,13 @@ def train_cnn(dataset_name):
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test)), params['batch_size'], 1)
             total_test_correct = 0
+            start=time.time()
             for test_batch in test_batches:
                 x_test_batch, y_test_batch = zip(*test_batch)
                 num_test_correct = dev_step(x_test_batch, y_test_batch)
                 total_test_correct += num_test_correct
             #path = saver.save(sess, checkpoint_prefix)
+            logging.critical("\nExecution time for testing = {0:.5f}".format(time.time() - start))   
             test_accuracy = float(total_test_correct) / len(y_test)
             logging.critical('Accuracy on test set is {} based on the best model {}'.format(test_accuracy, path))
             logging.critical('The training is complete')
