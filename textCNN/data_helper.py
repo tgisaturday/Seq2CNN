@@ -110,7 +110,7 @@ def shrink_df(label,label_count,data_per_class):
     else:
         return 'N/A'
     
-def load_data_and_labels(filename, dataset_name):
+def load_data_and_labels(filename, dataset_name,is_train):
     """Load sentences and labels"""
     label_count={}
     parameter_file = "./parameters.json"
@@ -121,12 +121,14 @@ def load_data_and_labels(filename, dataset_name):
 
         non_selected = list(set(df.columns) - set(selected))
         df = df.drop(non_selected, axis=1) # Drop non selected columns        
-        df['too_short']= df[selected[2]].apply(lambda x: (remove_short(x,params['max_length'])))
+        df['too_short']= df[selected[2]].apply(lambda x: (remove_short(x,params['min_length'])))
         df['too_short']=df['too_short'].replace('N/A',np.NaN)
-        df = df.dropna(axis=0, how='any') # Drop null rows        
+        if is_train:
+            df = df.dropna(axis=0, how='any') # Drop null rows            
         df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count,params['data_per_class'])))
         df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
-        df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
+        if is_train:
+            df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
         for key,value in label_count.items():
             print("{} : {}".format(key,value))
@@ -146,12 +148,14 @@ def load_data_and_labels(filename, dataset_name):
         selected = ['label','text','too_short','to_drop']
         non_selected = list(set(df.columns) - set(selected))
         df = df.drop(non_selected, axis=1) # Drop non selected columns        
-        df['too_short']= df[selected[1]].apply(lambda x: (remove_short(x,params['max_length'])))
+        df['too_short']= df[selected[1]].apply(lambda x: (remove_short(x,params['min_length'])))
         df['too_short']=df['too_short'].replace('N/A',np.NaN)  
-        df = df.dropna(axis=0, how='any') # Drop null rows        
+        if is_train:
+            df = df.dropna(axis=0, how='any') # Drop null rows         
         df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count,params['data_per_class'])))
         df['to_drop']=df['to_drop'].replace('N/A',np.NaN)  
-        df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
+        if is_train:
+            df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
         for key,value in label_count.items():
             print("{} : {}".format(key,value))
@@ -172,13 +176,14 @@ def load_data_and_labels(filename, dataset_name):
         non_selected = list(set(df.columns) - set(selected))
         df = df.drop(non_selected, axis=1) # Drop non selected columns        
         df['temp'] = df[['content','answer']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
-        df['too_short']= df['temp'].apply(lambda x: (remove_short(x,params['max_length'])))
+        df['too_short']= df['temp'].apply(lambda x: (remove_short(x,params['min_length'])))
         df['too_short']=df['too_short'].replace('N/A',np.NaN)            
-        df = df.dropna(axis=0, how='any') # Drop null rows
+        if is_train:
+            df = df.dropna(axis=0, how='any') # Drop null rows      
         df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count,params['data_per_class'])))
         df['to_drop']=df['to_drop'].replace('N/A',np.NaN)    
-
-        df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
+        if is_train:
+            df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
         for key,value in label_count.items():
             print("{} : {}".format(key,value))

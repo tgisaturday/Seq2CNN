@@ -89,8 +89,8 @@ def train_cnn(dataset_name):
         is_simple = True
     else:
         is_simple = False        
-    x_raw, y_raw, target_raw, df, labels = data_helper.load_data_and_labels(dataset,dataset_name,params['max_length'],params['max_summary_length'],enable_max)
-    x_test_raw, y_test_raw, target_test_raw, df_test, labels_test = data_helper.load_data_and_labels(testset,dataset_name,params['max_length'],params['max_summary_length'],enable_max)
+    x_raw, y_raw, target_raw, df, labels = data_helper.load_data_and_labels(dataset,dataset_name,params['max_length'],params['max_summary_length'],enable_max,True)
+    x_test_raw, y_test_raw, target_test_raw, df_test, labels_test = data_helper.load_data_and_labels(testset,dataset_name,params['max_length'],params['max_summary_length'],enable_max,False)
     word_counts = {}
     count_words(word_counts, x_raw)        
     logging.info("Size of Vocabulary: {}".format(len(word_counts)))
@@ -192,7 +192,7 @@ def train_cnn(dataset_name):
                 num_filters=params['num_filters'],
                 vocab_size=len(vocab_to_int),
                 embedding_size=params['embedding_dim'],
-                seq_ratio=params['seq_ratio']
+                seq_lambda=params['seq_lambda']
                 )
             global_step = tf.Variable(0, name="global_step", trainable=False)            
             num_batches_per_epoch = int((len(x_train)-1)/params['batch_size']) + 1
@@ -351,7 +351,7 @@ def train_cnn(dataset_name):
                 total_test_correct += num_test_correct
             path = saver.save(sess, checkpoint_prefix)
             test_accuracy = float(total_test_correct) / len(y_test)
-            logging.critical("\nExecution time for testing = {0:.5f}".format(time.time() - start))            
+            logging.critical("\nExecution time for testing = {0:.6f}".format(time.time() - start))            
             logging.critical('Accuracy on test set is {} based on the best model {}'.format(test_accuracy, path))
             logging.critical('The training is complete')
 

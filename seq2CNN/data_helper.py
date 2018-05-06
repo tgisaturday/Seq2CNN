@@ -113,7 +113,7 @@ def shrink_df(label,label_count,data_per_class):
     else:
         return 'N/A'
     
-def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,enable_max):
+def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,enable_max,is_train):
     """Load sentences and labels"""
     label_count={}
     parameter_file = "./parameters.json"
@@ -122,13 +122,16 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
         df = pd.read_csv(filename, names=['label', 'title', 'text'], dtype={'title': object,'text': object})
         selected = ['label', 'title','text','too_short','to_drop']
         non_selected = list(set(df.columns) - set(selected))
-        df = df.drop(non_selected, axis=1) # Drop non selected columns        
-        df['too_short']= df[selected[2]].apply(lambda x: (remove_short(x,max_summary_length)))
+        df = df.drop(non_selected, axis=1) # Drop non selected columns 
+        
+        df['too_short']= df[selected[2]].apply(lambda x: (remove_short(x,params['min_length'])))
         df['too_short']=df['too_short'].replace('N/A',np.NaN)
-        df = df.dropna(axis=0, how='any') # Drop null rows        
+        if is_train:
+            df = df.dropna(axis=0, how='any') # Drop null rows        
         df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count,params['data_per_class'])))
         df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
-        df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
+        if is_train:
+            df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
         for key,value in label_count.items():
             print("{} : {}".format(key,value))
@@ -142,19 +145,21 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
         start = time.time()
         target_raw = df[selected[2]].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-        print("\nExecution time for summary generation = {0:.5f}".format(time.time() - start))
+        print("\nExecution time for summary generation = {0:.6f}".format(time.time() - start))
             
     elif dataset_name == 'yelp_review_full' or dataset_name == 'yelp_review_polarity':
         df = pd.read_csv(filename, names=['label','text'], dtype={'text': object})
         selected = ['label','text','too_short','to_drop']
         non_selected = list(set(df.columns) - set(selected))
         df = df.drop(non_selected, axis=1) # Drop non selected columns        
-        df['too_short']= df[selected[1]].apply(lambda x: (remove_short(x,max_summary_length)))
+        df['too_short']= df[selected[1]].apply(lambda x: (remove_short(x,params['min_length'])))
         df['too_short']=df['too_short'].replace('N/A',np.NaN)
-        df = df.dropna(axis=0, how='any') # Drop null rows        
+        if is_train:
+            df = df.dropna(axis=0, how='any') # Drop null rows             
         df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count,params['data_per_class'])))
         df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
-        df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
+        if is_train:
+            df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
         for key,value in label_count.items():
             print("{} : {}".format(key,value))
@@ -168,7 +173,7 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
         start = time.time()
         target_raw = df['text'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-        print("\nExecution time for summary generation = {0:.5f}".format(time.time() - start))
+        print("\nExecution time for summary generation = {0:.6f}".format(time.time() - start))
             
     elif dataset_name == 'yahoo_answers':
         df = pd.read_csv(filename, names=['label', 'title', 'content','answer'], dtype={'title': object,'answer': object,'content': object})
@@ -177,13 +182,14 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
         non_selected = list(set(df.columns) - set(selected))
         df = df.drop(non_selected, axis=1) # Drop non selected columns        
         df['temp'] = df[['content','answer']].apply(lambda x: ' '.join(str(v) for v in x), axis=1)
-        df['too_short']= df['temp'].apply(lambda x: (remove_short(x,max_summary_length)))
+        df['too_short']= df['temp'].apply(lambda x: (remove_short(x,params['min_length'])))
         df['too_short']=df['too_short'].replace('N/A',np.NaN)
-        df = df.dropna(axis=0, how='any') # Drop null rows        
+        if is_train:
+            df = df.dropna(axis=0, how='any') # Drop null rows          
         df['to_drop']= df[selected[0]].apply(lambda y: (shrink_df(y,label_count,params['data_per_class'])))
         df['to_drop']=df['to_drop'].replace('N/A',np.NaN)
-
-        df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
+        if is_train:
+            df = df.dropna(axis=0, how='any', subset=selected) # Drop null rows
         df = df.reindex(np.random.permutation(df.index)) # Shuffle the dataframe
         for key,value in label_count.items():
             print("{} : {}".format(key,value))
@@ -196,7 +202,7 @@ def load_data_and_labels(filename,dataset_name,max_length,max_summary_length,ena
         y_raw = df[selected[0]].apply(lambda y: label_dict[y]).tolist()
         start = time.time()
         target_raw = df['temp'].apply(lambda x: gen_summary(x,max_summary_length)).tolist()
-        print("\nExecution time for summary generation = {0:.5f}".format(time.time() - start))
+        print("\nExecution time for summary generation = {0:.6f}".format(time.time() - start))
                    
             
     return x_raw, y_raw,target_raw, df, labels

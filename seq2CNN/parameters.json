@@ -1,7 +1,8 @@
 {
     "num_epochs": 15,
     "batch_size": 256,
-    "data_per_class": 20000,
+    "data_per_class": 25000,
+    "min_length":20,
     "filter_sizes": "3,4,5",
     "learning_rate": 0.001,
     "epsilon": 0.1,
@@ -22,6 +23,6 @@
     "use_gru": 1,
     "watch_rnn_output": 0,
     "independent_train": 0,
-    "seq_ratio": 1.0,
+    "seq_lambda": 1.0,
     "is_simple": 1
 }

@@ -14,12 +14,12 @@ logging.getLogger().setLevel(logging.INFO)
 
 def train_cnn(dataset_name):
     """Step 0: load sentences, labels, and training parameters"""
-    dataset = '../dataset/'+dataset_name+'_csv/test.csv'
+    dataset = '../dataset/'+dataset_name+'_csv/train.csv'
     testset = '../dataset/'+dataset_name+'_csv/test.csv'
     parameter_file = "./parameters.json"
     params = json.loads(open(parameter_file).read())
-    x_raw, y_raw, df, labels = data_helper.load_data_and_labels(dataset,dataset_name)
-    x_test, y_test, df, labels = data_helper.load_data_and_labels(testset,dataset_name)
+    x_raw, y_raw, df, labels = data_helper.load_data_and_labels(dataset,dataset_name,True)
+    x_test, y_test, df, labels = data_helper.load_data_and_labels(testset,dataset_name,False)
 
     """Step 1: pad each sentence to the same length and map each word to an id"""
     max_document_length = max([len(x.split(' ')) for x in x_raw])
@@ -145,7 +145,7 @@ def train_cnn(dataset_name):
                 num_test_correct = dev_step(x_test_batch, y_test_batch)
                 total_test_correct += num_test_correct
             #path = saver.save(sess, checkpoint_prefix)
-            logging.critical("\nExecution time for testing = {0:.5f}".format(time.time() - start))   
+            logging.critical("\nExecution time for testing = {0:.6f}".format(time.time() - start))   
             test_accuracy = float(total_test_correct) / len(y_test)
             logging.critical('Accuracy on test set is {} based on the best model {}'.format(test_accuracy, path))
             logging.critical('The training is complete')
