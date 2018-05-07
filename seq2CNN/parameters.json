@@ -1,5 +1,5 @@
 {
-    "num_epochs": 20,
+    "num_epochs": 30,
     "batch_size": 256,
     "data_per_class": 30000,
     "min_length":1,
@@ -8,7 +8,7 @@
     "epsilon": 0.1,
     "min_frequency": 3,
     "max_length": 20,
-    "max_summary_length": 20,
+    "max_summary_length": 50,
     "rnn_size": 128,
     "rnn_num_layers": 2,
     "num_filters": 32,
@@ -23,6 +23,6 @@
     "use_gru": 1,
     "watch_rnn_output": 0,
     "independent_train": 0,
-    "seq_lambda": 1.0,
+    "seq_lambda": 1.5,
     "is_simple": 1
 }
