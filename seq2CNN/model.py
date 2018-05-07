@@ -10,7 +10,7 @@ rand_uniform = tf.random_uniform_initializer(-1,1,seed=2)
 regularizer = tf.contrib.layers.l2_regularizer(1e-2)
 
 class seq2CNN(object):  
-    def __init__(self,num_classes,filter_sizes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size, seq_lambda):
+    def __init__(self,num_classes,filter_sizes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
@@ -19,8 +19,9 @@ class seq2CNN(object):
         self.targets = tf.placeholder(tf.int32, [None, None], name='targets')
         self.text_length = tf.placeholder(tf.int32, (None,), name='text_length')
         self.summary_length = tf.placeholder(tf.int32, (None,), name='summary_length')
+        self.seq_lambda = tf.placeholder(tf.float32, name='seq_lambda')     
         self.is_training = tf.placeholder(tf.bool, name='is_training')
-        
+
         
         with tf.device('/cpu:0'),tf.name_scope('embedding'):
             embeddings = tf.get_variable(name='embedding_W', shape=[vocab_size, embedding_size],initializer=rand_uniform)
@@ -123,7 +124,7 @@ class seq2CNN(object):
             cnn_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores)
             masks = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
             seq_loss = tf.contrib.seq2seq.sequence_loss(training_logits[0].rnn_output,self.targets,masks)+0.01
-            self.loss = tf.reduce_mean(cnn_loss) + seq_lambda*seq_loss + tf.reduce_sum(regularization_losses)
+            self.loss = self.seq_lambda*seq_loss +tf.reduce_mean(cnn_loss) + tf.reduce_sum(regularization_losses)
             self.seq_loss = seq_loss
             self.cnn_loss = tf.reduce_mean(cnn_loss)+ tf.reduce_sum(regularization_losses)
             tf.summary.scalar('loss',self.loss)
@@ -138,6 +139,7 @@ class seq2CNN(object):
             correct_predictions = tf.equal(self.inference_predictions, tf.argmax(self.input_y, 1))
             self.num_correct = tf.reduce_sum(tf.cast(correct_predictions, 'float'), name='num_correct')
         self.merged = tf.summary.merge_all()    
+        
 def process_encoding_input(target_data, vocab_to_int, batch_size):
     '''Remove the last word id from each batch and concat the <GO> to the begining of each batch'''
     
@@ -191,9 +193,9 @@ def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_t
                                                            output_layer) 
 
     training_logits = tf.contrib.seq2seq.dynamic_decode(training_decoder,
-                                                           output_time_major=False,
-                                                           impute_finished=True,
-                                                          maximum_iterations=max_summary_length)
+                                                        output_time_major=False,
+                                                        impute_finished=True,
+                                                        maximum_iterations=max_summary_length)
     return training_logits
 
 
@@ -235,7 +237,7 @@ def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size
                                                   initial_state,
                                                   output_layer,
                                                   vocab_size, 
-                                                 max_summary_length,
+                                                  max_summary_length,
                                                   batch_size,
                                                   True)  
     with tf.variable_scope("decode", reuse=True):

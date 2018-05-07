@@ -6,7 +6,8 @@ import logging
 import data_helper
 import numpy as np
 import tensorflow as tf
-from model_scratch import seq2CNN
+import math
+from model import seq2CNN
 from tensorflow.contrib import learn
 from sklearn.model_selection import train_test_split
 
@@ -48,7 +49,14 @@ def convert_to_ints(text,vocab_to_int, word_count, unk_count, eos=False):
             sentence_ints.append(vocab_to_int["EOS"])
         ints.append(sentence_ints)
     return ints, word_count, unk_count
-
+def exponential_lambda_decay(seq_lambda, global_step, decay_steps, decay_rate, staircase=False):
+    global_step = float(global_step)
+    decay_steps = float(decay_steps)
+    decay_rate = float(decay_rate)
+    p = global_step / decay_steps
+    if staircase:
+        p = math.floor(p)
+    return seq_lambda * math.pow(decay_rate, p)
 def train_cnn(dataset_name):
     """Step 0: load sentences, labels, and training parameters"""
     dataset = '../dataset/'+dataset_name+'_csv/train.csv'
@@ -191,29 +199,23 @@ def train_cnn(dataset_name):
                 vocab_to_int = vocab_to_int,
                 num_filters=params['num_filters'],
                 vocab_size=len(vocab_to_int),
-                embedding_size=params['embedding_dim'],
-                seq_lambda=params['seq_lambda']
+                embedding_size=params['embedding_dim']
                 )
             global_step = tf.Variable(0, name="global_step", trainable=False)            
             num_batches_per_epoch = int((len(x_train)-1)/params['batch_size']) + 1
             epsilon=params['epsilon']
-            #learning_rate = params['learning_rate']
-            #dev_plateau = 0
+
             learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
-            #learning_rate = params['learning_rate']
+
             optimizer = tf.train.AdamOptimizer(learning_rate,epsilon)
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
             gradients, variables = zip(*optimizer.compute_gradients(cnn.loss))
-            seq_gradients, seq_variables = zip(*optimizer.compute_gradients(cnn.seq_loss))
-            cnn_gradients, cnn_variables = zip(*optimizer.compute_gradients(cnn.cnn_loss))
             gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
-            seq_gradients, _ = tf.clip_by_global_norm(seq_gradients, 5.0)
-            cnn_gradients, _ = tf.clip_by_global_norm(cnn_gradients, 5.0)
+
             with tf.control_dependencies(update_ops):
                 train_op = optimizer.apply_gradients(zip(gradients, variables), global_step=global_step)
-                seq_train_op = optimizer.apply_gradients(zip(seq_gradients, seq_variables), global_step=global_step)
-                cnn_train_op = optimizer.apply_gradients(zip(cnn_gradients, cnn_variables), global_step=global_step)
+
 
             timestamp = str(int(time.time()))
             out_dir = os.path.abspath(os.path.join(os.path.curdir, dataset_name + "_" + timestamp))
@@ -226,7 +228,7 @@ def train_cnn(dataset_name):
             if not os.path.exists(checkpoint_dir):
                 os.makedirs(checkpoint_dir)
             saver = tf.train.Saver(tf.global_variables())
-
+            seq_lambda = params['seq_lambda']
             # One training step: train the model with one batch
             def train_step(x_batch, y_batch,target_batch,t_batch,s_batch):
                 feed_dict = {
@@ -237,40 +239,13 @@ def train_cnn(dataset_name):
                     cnn.summary_length: s_batch,
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: params['dropout_keep_prob'],
+                    cnn.seq_lambda: seq_lambda,
                     cnn.is_training: True}
                 summary, _, logits, step, loss,seq_loss, cnn_loss, acc = sess.run([cnn.merged,train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss, cnn.cnn_loss, cnn.accuracy], feed_dict)
                 current_step = tf.train.global_step(sess, global_step)
                 train_writer.add_summary(summary,current_step)
                 return loss, seq_loss, cnn_loss, acc, logits
-            def seq_train_step(x_batch, y_batch,target_batch,t_batch,s_batch):
-                feed_dict = {
-                    cnn.input_x: x_batch,
-                    cnn.input_y: y_batch,
-                    cnn.targets: target_batch,
-                    cnn.text_length: t_batch,
-                    cnn.summary_length: s_batch,
-                    cnn.batch_size: len(x_batch),
-                    cnn.dropout_keep_prob: params['dropout_keep_prob'],
-                    cnn.is_training: True}
-                summary,_, logits, step, loss,seq_loss,cnn_loss, acc = sess.run([cnn.merged,seq_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss,cnn.cnn_loss,cnn.accuracy], feed_dict)
-                current_step = tf.train.global_step(sess, global_step)
-                train_writer.add_summary(summary,current_step)
-                return loss, seq_loss, cnn_loss, acc, logits
-            def cnn_train_step(x_batch, y_batch,target_batch,t_batch,s_batch):
-                feed_dict = {
-                    cnn.input_x: x_batch,
-                    cnn.input_y: y_batch,
-                    cnn.targets: target_batch,
-                    cnn.text_length: t_batch,
-                    cnn.summary_length: s_batch,
-                    cnn.batch_size: len(x_batch),
-                    cnn.dropout_keep_prob: params['dropout_keep_prob'],
-                    cnn.is_training: True}
-                summary, _, logits, step, loss,seq_loss,cnn_loss, acc = sess.run([cnn.merged,cnn_train_op,cnn.training_logits, global_step, cnn.loss, cnn.seq_loss,cnn.cnn_loss,cnn.accuracy], feed_dict)
-                current_step = tf.train.global_step(sess, global_step)
-                train_writer.add_summary(summary,current_step)
-                return loss, seq_loss, cnn_loss, acc, logits
-            
+
             # One evaluation step: evaluate the model with one batch
             def dev_step(x_batch, y_batch,target_batch, t_batch,s_batch):
                 feed_dict = {
@@ -281,6 +256,7 @@ def train_cnn(dataset_name):
                     cnn.summary_length: s_batch,
                     cnn.batch_size: len(x_batch),
                     cnn.dropout_keep_prob: 1.0,
+                    cnn.seq_lambda: seq_lambda,
                     cnn.is_training: False}
                 summary, step, loss, seq_loss, acc, num_correct,examples = sess.run([cnn.merged,global_step, cnn.loss, cnn.seq_loss, cnn.accuracy, cnn.num_correct,cnn.inference_logits],feed_dict)
                 if watch_rnn_output == True:
@@ -305,18 +281,11 @@ def train_cnn(dataset_name):
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 current_step = tf.train.global_step(sess, global_step)
-                if independent_train==True:
-                    train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = seq_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
-                    train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = cnn_train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
-                else:
-                    train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
+                train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
 
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""
                 if current_step % params['evaluate_every'] == 0:
                     logging.critical('step: {} accuracy: {} loss: {} seq_loss: {} cnn_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss,train_cnn_loss))
-                    pad = vocab_to_int['PAD']
-                    result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
-                    logging.info('{}'.format(result))
                     dev_batches = data_helper.batch_iter(list(zip(x_dev, y_dev,target_dev,t_dev,s_dev)), params['batch_size'], 1)
                     total_dev_correct = 0
                     for dev_batch in dev_batches:
@@ -333,13 +302,7 @@ def train_cnn(dataset_name):
                         path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                         logging.critical('Saved model at {} at step {}'.format(path, best_at_step))
                         logging.critical('Best accuracy is {} at step {}'.format(best_accuracy, best_at_step))
-                        #dev_plateau = 0
-                    #elif dev_accuracy > params['decay_start_acc']:
-                        #if dev_plateau > 10 :
-                            #learning_rate *= 0.1
-                        #else:
-                            #dev_plateau += 1
-
+                seq_lambda = exponential_lambda_decay(params['seq_lambda'], current_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_test,t_test,s_test)), params['batch_size'], 1)
             total_test_correct = 0

@@ -1,8 +1,8 @@
 {
-    "num_epochs": 15,
+    "num_epochs": 20,
     "batch_size": 256,
-    "data_per_class": 25000,
-    "min_length":20,
+    "data_per_class": 30000,
+    "min_length":1,
     "filter_sizes": "3,4,5",
     "learning_rate": 0.001,
     "epsilon": 0.1,
