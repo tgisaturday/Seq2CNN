@@ -55,8 +55,10 @@ def exponential_lambda_decay(seq_lambda, global_step, decay_steps, decay_rate, s
     decay_steps = float(decay_steps)
     decay_rate = float(decay_rate)
     p = global_step / decay_steps
+
     if staircase:
         p = math.floor(p)
+    
     return seq_lambda * math.pow(decay_rate, p)
 
 def train_cnn(dataset_name):
@@ -207,7 +209,7 @@ def train_cnn(dataset_name):
             num_batches_per_epoch = int((len(x_train)-1)/params['batch_size']) + 1
             epsilon=params['epsilon']
 
-            learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
+            learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step,num_batches_per_epoch, 0.95, staircase=True)
 
             optimizer = tf.train.AdamOptimizer(learning_rate,epsilon)
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -230,7 +232,7 @@ def train_cnn(dataset_name):
             if not os.path.exists(checkpoint_dir):
                 os.makedirs(checkpoint_dir)
             saver = tf.train.Saver(tf.global_variables())
-            seq_lambda = params['seq_lambda']
+
             # One training step: train the model with one batch
             def train_step(x_batch, y_batch,target_batch,t_batch,s_batch,seq_lambda):
                 feed_dict = {
@@ -283,19 +285,22 @@ def train_cnn(dataset_name):
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 current_step = tf.train.global_step(sess, global_step)
-                seq_lambda = exponential_lambda_decay(params['seq_lambda'], current_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
+                seq_lambda = exponential_lambda_decay(params['seq_lambda'], current_step,num_batches_per_epoch, 0.95, staircase=True)
+
                 train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch,seq_lambda)
 
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""
                 if current_step % params['evaluate_every'] == 0:
-                    logging.critical('step: {} accuracy: {} loss: {} seq_loss: {} cnn_loss: {}'.format(current_step, train_acc, train_loss, train_seq_loss,train_cnn_loss))
+                    logging.critical('step: {} accuracy: {:0.6f} learning_rate: {:0.6f} seq_lambda: {:0.6f} loss: {:0.6f} seq_loss: {:0.6f} cnn_loss: {:0.6f}'.format(current_step, train_acc,learning_rate.eval(),seq_lambda, train_loss, train_seq_loss,train_cnn_loss))
+                    pad = vocab_to_int['PAD']
+                    result =  " ".join([int_to_vocab[j] for j in examples[0] if j != pad])
+                    logging.info('{}'.format(result))
                     dev_batches = data_helper.batch_iter(list(zip(x_dev, y_dev,target_dev,t_dev,s_dev)), params['batch_size'], 1)
                     total_dev_correct = 0
                     for dev_batch in dev_batches:
                         x_dev_batch, y_dev_batch,target_dev_batch, t_dev_batch,s_dev_batch = zip(*dev_batch)
                         num_dev_correct = dev_step(x_dev_batch, y_dev_batch,target_dev_batch,t_dev_batch,s_dev_batch,seq_lambda)
                         total_dev_correct += num_dev_correct
-
                     dev_accuracy = float(total_dev_correct) / len(y_dev)
                     logging.critical('Accuracy on dev set: {}'.format(dev_accuracy))
 
@@ -313,7 +318,7 @@ def train_cnn(dataset_name):
             start = time.time()
             for test_batch in test_batches:
                 x_test_batch, y_test_batch,target_test_batch, t_test_batch,s_test_batch = zip(*test_batch)
-                num_test_correct = dev_step(x_test_batch, y_test_batch,target_test_batch,t_test_batch,s_test_batch)
+                num_test_correct = dev_step(x_test_batch, y_test_batch,target_test_batch,t_test_batch,s_test_batch,seq_lambda)
                 total_test_correct += num_test_correct
             path = saver.save(sess, checkpoint_prefix)
             test_accuracy = float(total_test_correct) / len(y_test)
