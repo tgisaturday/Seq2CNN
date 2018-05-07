@@ -49,6 +49,7 @@ def convert_to_ints(text,vocab_to_int, word_count, unk_count, eos=False):
             sentence_ints.append(vocab_to_int["EOS"])
         ints.append(sentence_ints)
     return ints, word_count, unk_count
+
 def exponential_lambda_decay(seq_lambda, global_step, decay_steps, decay_rate, staircase=False):
     global_step = float(global_step)
     decay_steps = float(decay_steps)
@@ -57,6 +58,7 @@ def exponential_lambda_decay(seq_lambda, global_step, decay_steps, decay_rate, s
     if staircase:
         p = math.floor(p)
     return seq_lambda * math.pow(decay_rate, p)
+
 def train_cnn(dataset_name):
     """Step 0: load sentences, labels, and training parameters"""
     dataset = '../dataset/'+dataset_name+'_csv/train.csv'
@@ -230,7 +232,7 @@ def train_cnn(dataset_name):
             saver = tf.train.Saver(tf.global_variables())
             seq_lambda = params['seq_lambda']
             # One training step: train the model with one batch
-            def train_step(x_batch, y_batch,target_batch,t_batch,s_batch):
+            def train_step(x_batch, y_batch,target_batch,t_batch,s_batch,seq_lambda):
                 feed_dict = {
                     cnn.input_x: x_batch,
                     cnn.input_y: y_batch,
@@ -247,7 +249,7 @@ def train_cnn(dataset_name):
                 return loss, seq_loss, cnn_loss, acc, logits
 
             # One evaluation step: evaluate the model with one batch
-            def dev_step(x_batch, y_batch,target_batch, t_batch,s_batch):
+            def dev_step(x_batch, y_batch,target_batch, t_batch,s_batch,seq_lambda):
                 feed_dict = {
                     cnn.input_x: x_batch, 
                     cnn.input_y: y_batch,
@@ -281,7 +283,8 @@ def train_cnn(dataset_name):
             for train_batch in train_batches:
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 current_step = tf.train.global_step(sess, global_step)
-                train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch)
+                seq_lambda = exponential_lambda_decay(params['seq_lambda'], current_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
+                train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch,seq_lambda)
 
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""
                 if current_step % params['evaluate_every'] == 0:
@@ -290,7 +293,7 @@ def train_cnn(dataset_name):
                     total_dev_correct = 0
                     for dev_batch in dev_batches:
                         x_dev_batch, y_dev_batch,target_dev_batch, t_dev_batch,s_dev_batch = zip(*dev_batch)
-                        num_dev_correct = dev_step(x_dev_batch, y_dev_batch,target_dev_batch,t_dev_batch,s_dev_batch)
+                        num_dev_correct = dev_step(x_dev_batch, y_dev_batch,target_dev_batch,t_dev_batch,s_dev_batch,seq_lambda)
                         total_dev_correct += num_dev_correct
 
                     dev_accuracy = float(total_dev_correct) / len(y_dev)
@@ -302,7 +305,7 @@ def train_cnn(dataset_name):
                         path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                         logging.critical('Saved model at {} at step {}'.format(path, best_at_step))
                         logging.critical('Best accuracy is {} at step {}'.format(best_accuracy, best_at_step))
-                seq_lambda = exponential_lambda_decay(params['seq_lambda'], current_step,params['num_epochs']*num_batches_per_epoch, 0.95, staircase=True)
+                
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helper.batch_iter(list(zip(x_test, y_test,target_test,t_test,s_test)), params['batch_size'], 1)
             total_test_correct = 0
