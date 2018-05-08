@@ -124,7 +124,7 @@ class seq2CNN(object):
             cnn_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.input_y,logits=self.scores)
             masks = tf.sequence_mask(self.summary_length, max_summary_length, dtype=tf.float32, name='masks')
             seq_loss = tf.contrib.seq2seq.sequence_loss(training_logits[0].rnn_output,self.targets,masks)+0.01
-            self.loss = self.seq_lambda*seq_loss +(2 - self.seq_lambda)*(tf.reduce_mean(cnn_loss) + tf.reduce_sum(regularization_losses))
+            self.loss = self.seq_lambda*seq_loss + tf.reduce_mean(cnn_loss) + tf.reduce_sum(regularization_losses)
             self.seq_loss = seq_loss
             self.cnn_loss = tf.reduce_mean(cnn_loss)+ tf.reduce_sum(regularization_losses)
             tf.summary.scalar('loss',self.loss)

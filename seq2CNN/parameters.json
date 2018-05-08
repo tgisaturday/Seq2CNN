@@ -1,14 +1,14 @@
 {
     "num_epochs": 30,
     "batch_size": 256,
-    "data_per_class": 30000,
-    "min_length":1,
+    "data_per_class": 10000,
+    "min_length": 40,
     "filter_sizes": "3,4,5",
     "learning_rate": 0.001,
     "epsilon": 0.1,
-    "min_frequency": 3,
-    "max_length": 20,
-    "max_summary_length": 50,
+    "min_frequency": 14,
+    "max_length": 1000,
+    "max_summary_length": 20,
     "rnn_size": 128,
     "rnn_num_layers": 2,
     "num_filters": 32,
@@ -23,6 +23,6 @@
     "use_gru": 1,
     "watch_rnn_output": 0,
     "independent_train": 0,
-    "seq_lambda": 1.5,
+    "seq_lambda": 2.0,
     "is_simple": 1
 }
