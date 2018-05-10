@@ -10,7 +10,7 @@ rand_uniform = tf.random_uniform_initializer(-1,1,seed=2)
 regularizer = tf.contrib.layers.l2_regularizer(1e-2)
 
 class seq2CNN(object):  
-    def __init__(self,num_classes,filter_sizes, max_summary_length, rnn_size, rnn_num_layers, vocab_to_int, num_filters, vocab_size, embedding_size):
+    def __init__(self,num_classes,filter_sizes, max_summary_length, rnn_size, vocab_to_int, num_filters, vocab_size, embedding_size):
         
         self.input_x = tf.placeholder(tf.int32, [None, None], name='input_x')        
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name='input_y')        
@@ -31,7 +31,7 @@ class seq2CNN(object):
         #seq2seq layers
         with tf.name_scope('seq2seq'):
             batch_size = tf.reshape(self.batch_size, [])
-            enc_output, enc_state = encoding_layer(rnn_size, self.text_length, rnn_num_layers, enc_embed_input, self.dropout_keep_prob)
+            enc_output, enc_state = encoding_layer(rnn_size, self.text_length, enc_embed_input, self.dropout_keep_prob)
             
             dec_input = process_encoding_input(self.targets, vocab_to_int, batch_size)
             dec_embed_input = tf.nn.embedding_lookup(embeddings, dec_input)
@@ -47,7 +47,6 @@ class seq2CNN(object):
                                                 vocab_to_int, 
                                                 self.dropout_keep_prob, 
                                                 batch_size,
-                                                rnn_num_layers,
                                                 self.is_training)
 
             self.training_logits =tf.argmax(training_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
@@ -148,31 +147,26 @@ def process_encoding_input(target_data, vocab_to_int, batch_size):
 
     return dec_input 
 
-def encoding_layer(rnn_size, sequence_length, num_layers, rnn_inputs, keep_prob):
+def encoding_layer(rnn_size, sequence_length, rnn_inputs, keep_prob):
     '''Create the encoding layer'''
     
-    for layer in range(num_layers):
-        with tf.variable_scope('encoder_{}'.format(layer)):
+    with tf.variable_scope('encoder'):
 
-            cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
-            cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
+        #cell_fw = tf.contrib.rnn.GRUCell(rnn_size)
+        #cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
 
-            cell_bw = tf.contrib.rnn.GRUCell(rnn_size)   
-            cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
+        #cell_bw = tf.contrib.rnn.GRUCell(rnn_size)   
+        #cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
 
-            #cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            #cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
+        cell_fw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+        cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob = keep_prob)
 
-            #cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))   
-            #cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
+        cell_bw = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))   
+        cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw,input_keep_prob = keep_prob)
 
-            enc_output, enc_state = tf.nn.bidirectional_dynamic_rnn(cell_fw, 
-                                                                    cell_bw, 
-                                                                    rnn_inputs,
-                                                                    sequence_length,
-                                                                    dtype=tf.float32)
-    # Join outputs since we are using a bidirectional RNN
-    enc_output = tf.concat(enc_output,2)
+        enc_output, enc_state = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, rnn_inputs, sequence_length, dtype=tf.float32)
+
+        enc_output = tf.concat(enc_output,2)
     
     return enc_output, enc_state
 
@@ -200,17 +194,16 @@ def training_decoding_layer(embeddings, dec_embed_input, summary_length, start_t
 
 
 
-def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, num_layers, is_training):
+def decoding_layer(dec_embed_input,embeddings, enc_output, enc_state, vocab_size, text_length, summary_length, max_summary_length, rnn_size, vocab_to_int, keep_prob, batch_size, is_training):
     '''Create the decoding cell and attention for the training and inference decoding layers'''
 
-    for layer in range(num_layers):
-        with tf.variable_scope('decoder_{}'.format(layer)):
+    with tf.variable_scope('decoder'):
 
-            lstm = tf.contrib.rnn.GRUCell(rnn_size)
-            dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
+        #lstm = tf.contrib.rnn.GRUCell(rnn_size)
+        #dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
 
-            #lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            #dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
+        lstm = tf.contrib.rnn.LSTMCell(rnn_size,initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+        dec_cell = tf.contrib.rnn.DropoutWrapper(lstm, input_keep_prob = keep_prob)
     
     output_layer = Dense(vocab_size,
                          kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))

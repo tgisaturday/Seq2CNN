@@ -199,7 +199,6 @@ def train_cnn(dataset_name):
                 filter_sizes=filter_sizes,
                 max_summary_length=params['max_summary_length'],
                 rnn_size=params['rnn_size'],
-                rnn_num_layers=params['rnn_num_layers'],
                 vocab_to_int = vocab_to_int,
                 num_filters=params['num_filters'],
                 vocab_size=len(vocab_to_int),
@@ -286,7 +285,7 @@ def train_cnn(dataset_name):
                 x_train_batch, y_train_batch,target_train_batch, t_train_batch,s_train_batch = zip(*train_batch)
                 current_step = tf.train.global_step(sess, global_step)
                 seq_lambda = exponential_lambda_decay(params['seq_lambda'], current_step,num_batches_per_epoch, 0.95, staircase=True)
-
+                #seq_lambda = params['seq_lambda']
                 train_loss, train_seq_loss, train_cnn_loss,train_acc,examples = train_step(x_train_batch, y_train_batch,target_train_batch,t_train_batch,s_train_batch,seq_lambda)
 
                 """Step 6.1: evaluate the model with x_dev and y_dev (batch by batch)"""
