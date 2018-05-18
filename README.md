@@ -1,4 +1,4 @@
-# Seq2CNN
+# Sequence-to-convolution Neural Networks
 
 We propose a new deep neural network model and its training scheme for text
 classification. Our model Sequence-to-convolution Neural Networks(Seq2CNN)
