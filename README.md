@@ -1,9 +1,14 @@
-# Deep_text_CNN
+# Seq2CNN
 
-Deep textCNN for text classification.
+We propose a new deep neural network model and its training scheme for text
+classification. Our model Sequence-to-convolution Neural Networks(Seq2CNN)
+consists of two blocks: Sequential Block that summarizes input texts and Convolution
+Block that receives summary of input and classifies it to certain label.
 
-Inspired by Inception and VGG Net.
+Seq2CNN is trained end-to-end to classify various-length texts without preprocessing
+inputs into fixed length. We also present Gradual Weight Shift(GWS)
+method that stabilize training. GWS is applied to our model’s loss function.
 
-Using summa textrank text summarizer, generates summarization sample for seq2seq training helper.
-
-Annealing CNN with summary generated from seq2seq
+We compared our model with word-based TextCNN trained with different data preprocessing
+methods. We obtained significant improvement of in classification accuracy
+over word-based TextCNN without any ensemble or data augmentation.
