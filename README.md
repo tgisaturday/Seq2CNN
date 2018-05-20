@@ -13,5 +13,5 @@ We compared our model with word-based TextCNN trained with different data prepro
 methods. We obtained significant improvement of in classification accuracy
 over word-based TextCNN without any ensemble or data augmentation.
 
-Here's overview of Seq2CNN model.
+Here's the overview of Seq2CNN model.
 ![alt text](https://github.com/tgisaturday/Seq2CNN/blob/master/seq2CNN.png)
