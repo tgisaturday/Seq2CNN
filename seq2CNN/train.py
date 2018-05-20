@@ -73,30 +73,10 @@ def train_cnn(dataset_name):
         enable_max = True
     else:
         enable_max = False
-    if params['use_gru'] == 1:
-        use_gru = True
-    else:
-        use_gru = False
-    if params['rnn_layer_norm'] == 1:
-        rnn_layer_norm= True
-    else:
-        rnn_layer_norm = False
-    if params['fc_layer_norm'] == 1:
-        fc_layer_norm= True
-    else:
-        fc_layer_norm = False
-    if params['temp_norm'] == 1:
-        temp_norm= True
-    else:
-        temp_norm = False
     if params['watch_rnn_output'] == 1:
         watch_rnn_output = True
     else:
         watch_rnn_output = False
-    if params['independent_train'] == 1:
-        independent_train = True
-    else:
-        independent_train = False
     if params['is_simple'] == 1:
         is_simple = True
     else:
@@ -327,5 +307,4 @@ def train_cnn(dataset_name):
 
 
 if __name__ == '__main__':
-    # python3 train.py ./data/consumer_complaints.csv.zip ./parameters.json
     train_cnn(sys.argv[1])
