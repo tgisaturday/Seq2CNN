@@ -1,5 +1,7 @@
 # Sequence-to-convolution Neural Networks
 
+arxiv link : https://arxiv.org/abs/1805.07745
+
 We propose a new deep neural network model and its training scheme for text
 classification. Our model Sequence-to-convolution Neural Networks(Seq2CNN)
 consists of two blocks: Sequential Block that summarizes input texts and Convolution
