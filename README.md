@@ -9,7 +9,7 @@ Block that receives summary of input and classifies it to certain label.
 
 Seq2CNN is trained end-to-end to classify various-length texts without preprocessing
 inputs into fixed length. We also present Gradual Weight Shift(GWS)
-method that stabilize training. GWS is applied to our model’s loss function.
+method that stabilizes training. GWS is applied to our model’s loss function.
 
 We compared our model with word-based TextCNN trained with different data preprocessing
 methods. We obtained significant improvement of in classification accuracy
