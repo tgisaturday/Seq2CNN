@@ -16,4 +16,5 @@ methods. We obtained significant improvement of in classification accuracy
 over word-based TextCNN without any ensemble or data augmentation.
 
 Here's the overview of Seq2CNN model.
+
 ![alt text](https://github.com/tgisaturday/Seq2CNN/blob/master/seq2CNN.png)
