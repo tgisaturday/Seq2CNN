@@ -54,9 +54,8 @@ class seq2CNN(object):
             self.inference_logits = tf.argmax(inference_logits[0].rnn_output,axis=2,name='rnn_output',output_type=tf.int64)
             self.inference_logits = tf.reshape(self.inference_logits, [batch_size,max_summary_length])
             
-        #VGGnet_Bigram
         with tf.variable_scope('textCNN'):
-            decoder_output = tf.nn.embedding_lookup(embeddings, self.training_logits)
+            decoder_output = tf.nn.embedding_lookup(embeddings, self.input_x)
             decoder_output_expanded = tf.expand_dims(decoder_output, -1)
 
             cnn_input = tf.contrib.layers.batch_norm(decoder_output_expanded,center=True, scale=True,is_training=self.is_training)
