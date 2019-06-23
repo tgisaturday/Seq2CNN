@@ -1,4 +1,4 @@
-# Word Embedding Annealing Using Sequence-to-sequence Neural Networks 
+# Word Embedding Annealing Using Sequence-to-sequence Model
 
 We propose a new technique to improve text classification accuracy by annealing the word embedding layer using Seq2seq Neural Networks. 
 Our model Sequence-to-convolution Neural Networks(Seq2CNN) consists of two blocks: Sequential Block that summarizes input texts and Convolution Block that classifies the original text to a label. 
